@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db } from './firebase';
 import { collection, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import html2canvas from 'html2canvas';
 
 // ─── ESCUDO SVG (Carpincho) ──────────────────────────────────────────────────
 const Shield = ({ size = 48, className = "" }) => (
@@ -1157,11 +1158,18 @@ function ConvocatoriaPage({ players, matches }) {
     if (status === 'yes') setToast('Ya estás en la convocatoria');
   };
 
-  const exportCard = () => {
+  const exportCard = async () => {
     const el = cardRef.current;
     if (!el) return;
-    // html2canvas approach (inline for demo)
-    alert('Para exportar instala: npm install html2canvas\nLuego usa html2canvas(ref.current).then(c => c.toDataURL())');
+    try {
+      const canvas = await html2canvas(el, { backgroundColor: '#0d1f16', scale: 2, useCORS: true });
+      const link = document.createElement('a');
+      link.download = `convocatoria-${upcoming ? upcoming.rival.replace(/\s+/g, '-').toLowerCase() : 'delta'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
