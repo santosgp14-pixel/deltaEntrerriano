@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db } from './firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import html2canvas from 'html2canvas';
 
 // ─── ESCUDO SVG (Carpincho) ──────────────────────────────────────────────────
@@ -1313,9 +1313,25 @@ function ConvocatoriaPage({ players, matches }) {
   );
 }
 
-function FeedPage({ posts, addPost }) {
+function FeedPage({ posts, addPost, updatePost }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: '', content: '', type: 'training' });
+  const [editing, setEditing] = useState(null); // { id, title, content, type }
+
+  const typeColors = {
+    match:    ['rgba(34,197,94,0.1)',   '#4ade80'],
+    squad:    ['rgba(201,168,76,0.1)',  '#c9a84c'],
+    training: ['rgba(59,130,246,0.1)',  '#60a5fa'],
+    info:     ['rgba(168,85,247,0.1)',  '#c084fc'],
+  };
+  const typeLabels = { match: 'Partido', squad: 'Convocatoria', training: 'Entrenamiento', info: 'Información' };
+
+  const TYPE_OPTIONS = [
+    { value: 'match',    label: 'Partido' },
+    { value: 'squad',    label: 'Convocatoria' },
+    { value: 'training', label: 'Entrenamiento' },
+    { value: 'info',     label: 'Información' },
+  ];
 
   const handleAddPost = () => {
     if (!form.title || !form.content) return;
@@ -1324,8 +1340,11 @@ function FeedPage({ posts, addPost }) {
     setShowForm(false);
   };
 
-  const typeColors = { match: ['rgba(34,197,94,0.1)', '#4ade80'], squad: ['rgba(201,168,76,0.1)', '#c9a84c'], training: ['rgba(59,130,246,0.1)', '#60a5fa'] };
-  const typeLabels = { match: 'Partido', squad: 'Convocatoria', training: 'Entrenamiento' };
+  const handleSaveEdit = () => {
+    if (!editing.title || !editing.content) return;
+    updatePost(editing.id, { title: editing.title, content: editing.content, type: editing.type });
+    setEditing(null);
+  };
 
   return (
     <div style={{ maxWidth: 640 }}>
@@ -1352,9 +1371,7 @@ function FeedPage({ posts, addPost }) {
           <div className="form-group">
             <label className="form-label">Tipo</label>
             <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-              <option value="match">Partido</option>
-              <option value="squad">Convocatoria</option>
-              <option value="training">Entrenamiento</option>
+              {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -1366,12 +1383,39 @@ function FeedPage({ posts, addPost }) {
 
       {posts.map(p => (
         <div key={p.id} className="post-card">
-          <div className="post-type-badge" style={{ background: typeColors[p.type]?.[0], color: typeColors[p.type]?.[1] }}>
-            {typeLabels[p.type] || p.type}
-          </div>
-          <div className="post-title">{p.title}</div>
-          <div className="post-body">{p.content}</div>
-          <div className="post-date">{formatDate(p.date)}</div>
+          {editing?.id === p.id ? (
+            <>
+              <div className="form-group" style={{ marginBottom: 10 }}>
+                <input className="form-input" value={editing.title} onChange={e => setEditing(v => ({ ...v, title: e.target.value }))} />
+              </div>
+              <div className="form-group" style={{ marginBottom: 10 }}>
+                <textarea className="form-input" rows={3} value={editing.content} onChange={e => setEditing(v => ({ ...v, content: e.target.value }))} style={{ resize: 'vertical' }} />
+              </div>
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <select className="form-select" value={editing.type} onChange={e => setEditing(v => ({ ...v, type: e.target.value }))}>
+                  {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-ghost" onClick={() => setEditing(null)} style={{ flex: 1 }}><Icon name="x" /> Cancelar</button>
+                <button className="btn btn-primary" onClick={handleSaveEdit} style={{ flex: 1 }}><Icon name="check" /> Guardar</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                <div className="post-type-badge" style={{ background: typeColors[p.type]?.[0], color: typeColors[p.type]?.[1] }}>
+                  {typeLabels[p.type] || p.type}
+                </div>
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditing({ id: p.id, title: p.title, content: p.content, type: p.type })} style={{ padding: '4px 8px', opacity: 0.7 }}>
+                  <Icon name="edit" />
+                </button>
+              </div>
+              <div className="post-title">{p.title}</div>
+              <div className="post-body">{p.content}</div>
+              <div className="post-date">{formatDate(p.date)}</div>
+            </>
+          )}
         </div>
       ))}
 
@@ -1472,7 +1516,8 @@ export default function App() {
 
   const addPlayer = (p) => { const { id, ...data } = p; addDoc(collection(db, 'players'), data); };
   const addMatch  = (m) => { const { id, ...data } = m; addDoc(collection(db, 'matches'), data); };
-  const addPost   = (p) => { addDoc(collection(db, 'posts'), { title: p.title, content: p.content, type: p.type, date: p.date, createdAt: serverTimestamp() }); };
+  const addPost    = (p) => { addDoc(collection(db, 'posts'), { title: p.title, content: p.content, type: p.type, date: p.date, createdAt: serverTimestamp() }); };
+  const updatePost = (id, data) => { updateDoc(doc(db, 'posts', id), data); };
 
   const loading = playersLoading && matchesLoading && postsLoading;
 
@@ -1484,7 +1529,7 @@ export default function App() {
     matches: <MatchesPage matches={matches} addMatch={addMatch} />,
     convocatoria: <ConvocatoriaPage players={players} matches={matches} />,
     stats: <StatsPage players={players} />,
-    feed: <FeedPage posts={posts} addPost={addPost} />,
+    feed: <FeedPage posts={posts} addPost={addPost} updatePost={updatePost} />,
   };
 
   return (
