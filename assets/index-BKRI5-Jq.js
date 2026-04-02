@@ -2196,6 +2196,7 @@ PERFORMANCE OF THIS SOFTWARE.
   }
   .nav-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; }
   .nav-label { display: none; }
+  .btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; flex-shrink: 0; }
 
   /* ── MAIN CONTENT ── */
   .main {
