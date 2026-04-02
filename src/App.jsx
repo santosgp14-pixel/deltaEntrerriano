@@ -108,6 +108,7 @@ const STYLES = `
     border-color: rgba(201,168,76,0.2);
   }
   .nav-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .nav-label { display: none; }
 
   /* ── MAIN CONTENT ── */
   .main {
@@ -553,9 +554,98 @@ const STYLES = `
 
   /* ── RESPONSIVE ── */
   @media (max-width: 768px) {
-    .main { padding: 16px; }
-    .stat-grid { grid-template-columns: repeat(2, 1fr); }
-    .players-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    /* Sidebar pasa a bottom nav */
+    .sidebar {
+      width: 100%;
+      height: 60px;
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      flex-direction: row;
+      justify-content: space-around;
+      align-items: center;
+      padding: 0 8px;
+      border-right: none;
+      border-top: 1px solid rgba(201,168,76,0.12);
+      z-index: 100;
+    }
+    .sidebar-logo { display: none; }
+    .nav-item {
+      width: 48px; height: 48px;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 0;
+      border-radius: 10px;
+    }
+    .nav-item svg { width: 22px; height: 22px; }
+    .nav-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: inherit;
+      text-transform: uppercase;
+    }
+
+    /* Main content */
+    .main {
+      margin-left: 0;
+      margin-bottom: 60px;
+      padding: 16px;
+      max-width: 100vw;
+    }
+
+    /* Grids */
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+    .stat-card { padding: 14px 16px; border-radius: 14px; }
+    .stat-value { font-size: 28px; }
+
+    /* Dashboard 2-col → 1-col */
+    .dashboard-two-col { grid-template-columns: 1fr !important; }
+
+    /* Players */
+    .players-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .player-card { padding: 14px; border-radius: 16px; }
+    .player-number { font-size: 38px; }
+
+    /* Page header */
+    .page-header { margin-bottom: 20px; }
+    .page-title { font-size: 24px; }
+
+    /* Tabs overflow scroll */
+    .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { white-space: nowrap; padding: 8px 14px; }
+
+    /* Match rows */
+    .match-row { padding: 12px 14px; border-radius: 12px; }
+    .match-rival { font-size: 14px; }
+
+    /* Modal */
+    .modal { border-radius: 20px 20px 0 0; position: fixed; bottom: 0; left: 0; right: 0; max-width: 100%; max-height: 85vh; }
+    .modal-overlay { align-items: flex-end; padding: 0; }
+
+    /* Convocatoria 2-col → 1-col */
+    .convocatoria-two-col { grid-template-columns: 1fr !important; }
+    .squad-card { width: 100%; }
+
+    /* Stats 2-col → 1-col */
+    .stats-two-col { grid-template-columns: 1fr !important; }
+
+    /* Toast */
+    .toast { bottom: 72px; right: 12px; left: 12px; }
+
+    /* Install banner */
+    .install-banner { bottom: 60px; }
+
+    /* Rank table */
+    .rank-table th, .rank-table td { padding: 8px 6px; font-size: 11px; }
+
+    /* Card sm */
+    .card-sm { padding: 12px 14px; border-radius: 12px; }
+
+    /* Buttons en page header */
+    .btn-header-only-icon .btn-label { display: none; }
   }
 `;
 
@@ -573,6 +663,11 @@ const Icon = ({ name }) => {
     check: <polyline points="20 6 9 17 4 12"/>,
     arrow: <><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></>,
     trophy: <><path d="M6 9H4a2 2 0 000 4h2"/><path d="M18 9h2a2 2 0 010 4h-2"/><path d="M6 9v6a6 6 0 0012 0V9"/><path d="M12 21v-3"/><path d="M9 21h6"/></>,
+    edit: <><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+    trash: <><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></>,
+    user: <><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+    shirt: <><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/></>,
+    news: <><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a4 4 0 01-4-4V6a2 2 0 012-2"/><path d="M10 7h6"/><path d="M10 11h6"/><path d="M10 15h4"/></>,
   };
   return (
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -667,8 +762,8 @@ function AddPlayerModal({ onClose, onAdd }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Cancelar</button>
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}>Agregar Jugador</button>
+          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}><Icon name="shirt" /> Agregar Jugador</button>
         </div>
       </div>
     </div>
@@ -721,8 +816,8 @@ function AddMatchModal({ onClose, onAdd }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Cancelar</button>
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}>Crear Partido</button>
+          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}><Icon name="calendar" /> Crear Partido</button>
         </div>
       </div>
     </div>
@@ -778,8 +873,7 @@ function Dashboard({ players, matches, posts }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {/* PRÓXIMO PARTIDO */}
+      <div className="dashboard-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div>
           <div className="section-title">Próximo Partido</div>
           {upcoming ? (
@@ -977,8 +1071,7 @@ function StatsPage({ players }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        {/* GOLEADORES */}
+      <div className="stats-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         <div>
           <div className="section-title">Tabla de Goleadores</div>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -1083,7 +1176,7 @@ function ConvocatoriaPage({ players, matches }) {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+      <div className="convocatoria-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
         {/* ASISTENCIA */}
         <div>
           <div className="section-title">Confirmar asistencia</div>
@@ -1236,8 +1329,8 @@ function FeedPage({ posts, addPost }) {
             </select>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-ghost" onClick={() => setShowForm(false)} style={{ flex: 1 }}>Cancelar</button>
-            <button className="btn btn-primary" onClick={handleAddPost} style={{ flex: 1 }}>Publicar</button>
+            <button className="btn btn-ghost" onClick={() => setShowForm(false)} style={{ flex: 1 }}><Icon name="x" /> Cancelar</button>
+            <button className="btn btn-primary" onClick={handleAddPost} style={{ flex: 1 }}><Icon name="news" /> Publicar</button>
           </div>
         </div>
       )}
@@ -1382,6 +1475,7 @@ export default function App() {
               title={n.label}
             >
               <Icon name={n.icon} />
+              <span className="nav-label">{n.label}</span>
             </div>
           ))}
         </nav>
