@@ -559,15 +559,16 @@ const STYLES = `
     /* Sidebar pasa a bottom nav */
     .sidebar {
       width: 100%;
-      height: 60px;
+      height: calc(60px + env(safe-area-inset-bottom));
       top: auto;
       bottom: 0;
       left: 0;
       right: 0;
       flex-direction: row;
       justify-content: space-around;
-      align-items: center;
+      align-items: flex-start;
       padding: 0 8px;
+      padding-bottom: env(safe-area-inset-bottom);
       border-right: none;
       border-top: 1px solid rgba(201,168,76,0.12);
       z-index: 100;
@@ -592,7 +593,7 @@ const STYLES = `
     /* Main content */
     .main {
       margin-left: 0;
-      margin-bottom: 60px;
+      margin-bottom: calc(60px + env(safe-area-inset-bottom));
       padding: 16px;
       max-width: 100vw;
     }
@@ -635,10 +636,10 @@ const STYLES = `
     .stats-two-col { grid-template-columns: 1fr !important; }
 
     /* Toast */
-    .toast { bottom: 72px; right: 12px; left: 12px; }
+    .toast { bottom: calc(72px + env(safe-area-inset-bottom)); right: 12px; left: 12px; }
 
     /* Install banner */
-    .install-banner { bottom: 60px; }
+    .install-banner { bottom: calc(60px + env(safe-area-inset-bottom)); }
 
     /* Rank table */
     .rank-table th, .rank-table td { padding: 8px 6px; font-size: 11px; }
