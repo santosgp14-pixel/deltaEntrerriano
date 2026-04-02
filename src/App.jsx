@@ -921,7 +921,7 @@ function Dashboard({ players, matches, posts }) {
         <div>
           <div className="section-title">Top Goleadores</div>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            {[...players].sort((a, b) => b.goals - a.goals).slice(0, 4).map((p, i) => (
+            {[...players].filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 4).map((p, i) => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                 <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, fontWeight: 800, color: i === 0 ? '#c9a84c' : '#2a5a3a', minWidth: 20, textAlign: 'center' }}>{i + 1}</div>
                 <div className="player-avatar" style={{ width: 36, height: 36, fontSize: 12, marginBottom: 0 }}>{initials(p.name)}</div>
@@ -1083,7 +1083,7 @@ function MatchesPage({ matches, addMatch }) {
 }
 
 function StatsPage({ players }) {
-  const sorted = [...players].sort((a, b) => b.goals - a.goals);
+  const sorted = [...players].filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals);
   return (
     <div>
       <div className="page-header">
