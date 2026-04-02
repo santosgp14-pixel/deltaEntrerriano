@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { db } from './firebase';
+import { collection, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 // ─── ESCUDO SVG (Carpincho) ──────────────────────────────────────────────────
 const Shield = ({ size = 48, className = "" }) => (
@@ -35,34 +37,9 @@ const Shield = ({ size = 48, className = "" }) => (
 );
 
 // ─── DATOS MOCK ──────────────────────────────────────────────────────────────
-const PLAYERS = [
-  { id: 1, name: "Marcos Villalba", number: 1, position: "Portero", status: "active", goals: 0, assists: 0, matches: 12 },
-  { id: 2, name: "Rodrigo Espinosa", number: 4, position: "Defensa", status: "active", goals: 2, assists: 3, matches: 11 },
-  { id: 3, name: "Pablo Méndez", number: 5, position: "Defensa", status: "active", goals: 1, assists: 1, matches: 10 },
-  { id: 4, name: "Nicolás Funes", number: 6, position: "Defensa", status: "injured", goals: 0, assists: 2, matches: 8 },
-  { id: 5, name: "Tomás Guerrero", number: 8, position: "Mediocampista", status: "active", goals: 4, assists: 7, matches: 12 },
-  { id: 6, name: "Ezequiel Romero", number: 10, position: "Mediocampista", status: "active", goals: 8, assists: 5, matches: 12 },
-  { id: 7, name: "Leandro Cruz", number: 7, position: "Delantero", status: "active", goals: 11, assists: 3, matches: 12 },
-  { id: 8, name: "Matías Soria", number: 9, position: "Delantero", status: "active", goals: 9, assists: 4, matches: 11 },
-  { id: 9, name: "Facundo Ibarra", number: 11, position: "Delantero", status: "active", goals: 6, assists: 2, matches: 10 },
-  { id: 10, name: "Sebastián Vega", number: 3, position: "Defensa", status: "active", goals: 0, assists: 1, matches: 9 },
-  { id: 11, name: "Agustín Pereira", number: 14, position: "Mediocampista", status: "active", goals: 3, assists: 6, matches: 11 },
-  { id: 12, name: "Bruno Acosta", number: 17, position: "Mediocampista", status: "suspended", goals: 2, assists: 2, matches: 7 },
-];
-
-const MATCHES = [
-  { id: 1, rival: "Los Toros FC", date: "2025-04-12", time: "16:00", venue: "Cancha Municipal Norte", result: "3-1", home: true, status: "played" },
-  { id: 2, rival: "Atlético Palmar", date: "2025-04-19", time: "15:30", venue: "Estadio Palmar", result: "1-1", home: false, status: "played" },
-  { id: 3, rival: "Sporting Gualeguay", date: "2025-04-26", time: "17:00", venue: "Cancha Municipal Norte", result: "2-0", home: true, status: "played" },
-  { id: 4, rival: "FC Diamante", date: "2025-05-03", time: "16:00", venue: "Cancha Diamante", result: null, home: false, status: "upcoming" },
-  { id: 5, rival: "Unión Colón", date: "2025-05-10", time: "17:00", venue: "Cancha Municipal Norte", result: null, home: true, status: "upcoming" },
-];
-
-const POSTS = [
-  { id: 1, title: "¡Victoria contundente!", content: "Delta Entrerriano aplastó a Los Toros FC 3-1 en un partido vibrante. Leandro Cruz brilló con doblete.", date: "2025-04-12", type: "match" },
-  { id: 2, title: "Entrenamiento intensivo esta semana", content: "El cuerpo técnico prepara variantes tácticas para el próximo choque ante FC Diamante.", date: "2025-04-28", type: "training" },
-  { id: 3, title: "Convocatoria publicada para el sábado", content: "Ya está disponible la lista de 14 jugadores para el partido ante FC Diamante.", date: "2025-05-01", type: "squad" },
-];
+const PLAYERS = [];
+const MATCHES = [];
+const POSTS = [];
 
 const POSITIONS = ["Portero", "Defensa", "Mediocampista", "Delantero"];
 const STATUS_LABELS = { active: "Activo", injured: "Lesionado", suspended: "Suspendido" };
@@ -770,7 +747,7 @@ function Dashboard({ players, matches, posts }) {
       <div className="page-header">
         <div>
           <div style={{ fontSize: 12, color: '#4a7a5a', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
-            Temporada 2025
+            Temporada {new Date().getFullYear()}
           </div>
           <div className="page-title">Dashboard</div>
         </div>
@@ -864,7 +841,7 @@ function Dashboard({ players, matches, posts }) {
   );
 }
 
-function PlayersPage({ players, setPlayers }) {
+function PlayersPage({ players, addPlayer }) {
   const [selected, setSelected] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState('Todos');
@@ -918,12 +895,12 @@ function PlayersPage({ players, setPlayers }) {
       </div>
 
       {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} />}
-      {showAdd && <AddPlayerModal onClose={() => setShowAdd(false)} onAdd={p => setPlayers(prev => [...prev, p])} />}
+      {showAdd && <AddPlayerModal onClose={() => setShowAdd(false)} onAdd={addPlayer} />}
     </div>
   );
 }
 
-function MatchesPage({ matches, setMatches }) {
+function MatchesPage({ matches, addMatch }) {
   const [showAdd, setShowAdd] = useState(false);
   const played = matches.filter(m => m.status === 'played');
   const upcoming = matches.filter(m => m.status === 'upcoming');
@@ -984,7 +961,7 @@ function MatchesPage({ matches, setMatches }) {
         })}
       </>}
 
-      {showAdd && <AddMatchModal onClose={() => setShowAdd(false)} onAdd={m => setMatches(prev => [...prev, m])} />}
+      {showAdd && <AddMatchModal onClose={() => setShowAdd(false)} onAdd={addMatch} />}
     </div>
   );
 }
@@ -1194,7 +1171,7 @@ function ConvocatoriaPage({ players, matches }) {
               {/* Footer */}
               <div style={{ textAlign: 'center', paddingTop: 4 }}>
                 <div style={{ fontSize: 11, color: '#3a6a4a', letterSpacing: '0.15em', fontWeight: 600, textTransform: 'uppercase' }}>
-                  🌿 Temporada 2025
+                  🌿 Temporada {new Date().getFullYear()}
                 </div>
               </div>
             </div>
@@ -1214,13 +1191,13 @@ function ConvocatoriaPage({ players, matches }) {
   );
 }
 
-function FeedPage({ posts, setPosts }) {
+function FeedPage({ posts, addPost }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: '', content: '', type: 'training' });
 
-  const addPost = () => {
+  const handleAddPost = () => {
     if (!form.title || !form.content) return;
-    setPosts(prev => [{ ...form, id: Date.now(), date: new Date().toISOString().split('T')[0] }, ...prev]);
+    addPost({ ...form, date: new Date().toISOString().split('T')[0] });
     setForm({ title: '', content: '', type: 'training' });
     setShowForm(false);
   };
@@ -1260,7 +1237,7 @@ function FeedPage({ posts, setPosts }) {
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-ghost" onClick={() => setShowForm(false)} style={{ flex: 1 }}>Cancelar</button>
-            <button className="btn btn-primary" onClick={addPost} style={{ flex: 1 }}>Publicar</button>
+            <button className="btn btn-primary" onClick={handleAddPost} style={{ flex: 1 }}>Publicar</button>
           </div>
         </div>
       )}
@@ -1352,21 +1329,40 @@ function InstallBanner() {
   );
 }
 
+function useCollection(col) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, col), snap => {
+      setData(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+      setLoading(false);
+    });
+    return unsub;
+  }, [col]);
+  return [data, loading];
+}
+
 export default function App() {
   const [page, setPage] = useState('dashboard');
-  const [players, setPlayers] = useState(PLAYERS);
-  const [matches, setMatches] = useState(MATCHES);
-  const [posts, setPosts] = useState(POSTS);
+  const [players, playersLoading] = useCollection('players');
+  const [matches, matchesLoading] = useCollection('matches');
+  const [posts, postsLoading] = useCollection('posts');
+
+  const addPlayer = (p) => { const { id, ...data } = p; addDoc(collection(db, 'players'), data); };
+  const addMatch  = (m) => { const { id, ...data } = m; addDoc(collection(db, 'matches'), data); };
+  const addPost   = (p) => { addDoc(collection(db, 'posts'), { title: p.title, content: p.content, type: p.type, date: p.date, createdAt: serverTimestamp() }); };
+
+  const loading = playersLoading && matchesLoading && postsLoading;
 
   useRegisterSW({ immediate: true });
 
   const pages = {
     dashboard: <Dashboard players={players} matches={matches} posts={posts} />,
-    players: <PlayersPage players={players} setPlayers={setPlayers} />,
-    matches: <MatchesPage matches={matches} setMatches={setMatches} />,
+    players: <PlayersPage players={players} addPlayer={addPlayer} />,
+    matches: <MatchesPage matches={matches} addMatch={addMatch} />,
     convocatoria: <ConvocatoriaPage players={players} matches={matches} />,
     stats: <StatsPage players={players} />,
-    feed: <FeedPage posts={posts} setPosts={setPosts} />,
+    feed: <FeedPage posts={posts} addPost={addPost} />,
   };
 
   return (
@@ -1392,7 +1388,10 @@ export default function App() {
 
         {/* MAIN */}
         <main className="main">
-          {pages[page]}
+          {loading
+            ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#4a7a5a', fontSize: 14 }}>Cargando...</div>
+            : pages[page]
+          }
         </main>
       </div>
       <InstallBanner />
