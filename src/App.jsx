@@ -670,6 +670,25 @@ const Icon = ({ name }) => {
     user: <><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
     shirt: <><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/></>,
     news: <><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a4 4 0 01-4-4V6a2 2 0 012-2"/><path d="M10 7h6"/><path d="M10 11h6"/><path d="M10 15h4"/></>,
+    ball: <><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/><path d="M2 12h20"/></>,
+    clipboard: <><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></>,
+    shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
+    whistle: <><path d="M6 5a7 7 0 0114 0"/><path d="M3 10h18"/><path d="M6 5v5l-3 6h18l-3-6V5"/><line x1="12" y1="10" x2="12" y2="19"/></>,
+    list: <><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>,
+    flag: <><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></>,
+    squad: <><circle cx="9" cy="7" r="3"/><circle cx="18" cy="7" r="3"/><path d="M3 21v-1a6 6 0 016-6h3"/><path d="M12 21v-1a5 5 0 015-5h1a5 5 0 015 5v1"/></>,
+    playercheck: <><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></>,
+    target: <><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>,
+    jersey: <><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46"/><path d="M9 2a3 3 0 006 0"/><path d="M3.62 3.46L2 10h5v11a1 1 0 001 1h8a1 1 0 001-1V10h5L20.38 3.46"/></>,
+    formation: <><rect x="4" y="3" width="16" height="18" rx="1"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="7" cy="13" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="13" r="1" fill="currentColor" stroke="none"/><circle cx="7" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/></>,
+    soccerball: <><circle cx="12" cy="12" r="10"/><path d="M12 2l3.09 9.26L22 12l-6.91 5.74L17 22l-5-3.82L7 22l1.91-4.26L2 12l6.91-.74L12 2z"/></>,
+    lineup: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/><circle cx="6" cy="6" r="1" fill="currentColor" stroke="none"/></>,
+    checkbox: <><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></>,
+    usercheck: <><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></>,
+    checklist: <><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></>,
+    taskdone: <><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>,
+    convocatoria: <><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></>,
+
   };
   return (
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1367,7 +1386,7 @@ const NAV = [
   { key: 'dashboard', icon: 'home', label: 'Inicio' },
   { key: 'players', icon: 'users', label: 'Plantel' },
   { key: 'matches', icon: 'calendar', label: 'Partidos' },
-  { key: 'convocatoria', icon: 'trophy', label: 'Convocatoria' },
+  { key: 'convocatoria', icon: 'convocatoria', label: 'Convocatoria' },
   { key: 'stats', icon: 'chart', label: 'Estadísticas' },
   { key: 'feed', icon: 'feed', label: 'Novedades' },
 ];
