@@ -16,8 +16,8 @@ export default defineConfig({
         background_color: '#0a1a12',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: '/deltaEntrerriano/',
+        start_url: '/deltaEntrerriano/',
         icons: [
           {
             src: 'icons/icon-192.png',
