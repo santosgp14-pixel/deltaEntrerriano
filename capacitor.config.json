@@ -1,0 +1,13 @@
+{
+  "appId": "com.deltaentrerriano.app",
+  "appName": "Delta Entrerriano",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}
