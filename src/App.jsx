@@ -793,11 +793,13 @@ function AddPlayerModal({ onClose, onAdd }) {
 }
 
 function AddMatchModal({ onClose, onAdd }) {
-  const [form, setForm] = useState({ rival: '', date: '', time: '16:00', venue: '', home: true });
+  const [form, setForm] = useState({ rival: '', date: '', time: '16:00', venue: '', home: true, status: 'upcoming', goalsUs: '', goalsRival: '' });
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const handle = () => {
     if (!form.rival || !form.date) return;
-    onAdd({ ...form, id: Date.now(), result: null, status: 'upcoming' });
+    const isPlayed = form.status === 'played';
+    const result = isPlayed ? `${form.goalsUs}-${form.goalsRival}` : null;
+    onAdd({ rival: form.rival, date: form.date, time: form.time, venue: form.venue, home: form.home, id: Date.now(), result, status: form.status });
     onClose();
   };
   return (
@@ -837,6 +839,34 @@ function AddMatchModal({ onClose, onAdd }) {
             ))}
           </div>
         </div>
+        <div className="form-group">
+          <label className="form-label">Estado</label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {[{ v: 'upcoming', l: 'Próximo' }, { v: 'played', l: 'Jugado' }].map(o => (
+              <button key={o.v}
+                className="btn"
+                style={{ flex: 1, background: form.status === o.v ? 'rgba(201,168,76,0.15)' : 'rgba(255,255,255,0.03)', color: form.status === o.v ? '#c9a84c' : '#4a7a5a', border: `1px solid ${form.status === o.v ? 'rgba(201,168,76,0.3)' : 'rgba(255,255,255,0.08)'}` }}
+                onClick={() => upd('status', o.v)}
+              >{o.l}</button>
+            ))}
+          </div>
+        </div>
+        {form.status === 'played' && (
+          <div className="form-group">
+            <label className="form-label">Resultado</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 10, alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#4a7a5a', marginBottom: 4, textAlign: 'center' }}>Delta</div>
+                <input className="form-input" type="number" min="0" placeholder="0" value={form.goalsUs} onChange={e => upd('goalsUs', e.target.value)} style={{ textAlign: 'center', fontSize: 20, fontWeight: 700 }} />
+              </div>
+              <div style={{ color: '#4a7a5a', fontWeight: 700, fontSize: 18, paddingTop: 20 }}>-</div>
+              <div>
+                <div style={{ fontSize: 11, color: '#4a7a5a', marginBottom: 4, textAlign: 'center' }}>Rival</div>
+                <input className="form-input" type="number" min="0" placeholder="0" value={form.goalsRival} onChange={e => upd('goalsRival', e.target.value)} style={{ textAlign: 'center', fontSize: 20, fontWeight: 700 }} />
+              </div>
+            </div>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}><Icon name="calendar" /> Crear Partido</button>
