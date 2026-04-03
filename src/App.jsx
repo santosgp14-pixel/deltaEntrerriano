@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { db } from './firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { db, messaging } from './firebase';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { getToken, onMessage } from 'firebase/messaging';
 import html2canvas from 'html2canvas';
 
 // ─── ESCUDO SVG (Carpincho) ──────────────────────────────────────────────────
@@ -650,6 +651,10 @@ const STYLES = `
     /* Buttons en page header */
     .btn-header-only-icon .btn-label { display: none; }
   }
+
+  /* ── FCM SIDEBAR BELL ── */
+  .sidebar-bottom { margin-top: auto; }
+  @media (max-width: 768px) { .sidebar-bottom { margin-top: 0; } }
 `;
 
 // ─── ICONS ───────────────────────────────────────────────────────────────────
@@ -689,6 +694,8 @@ const Icon = ({ name }) => {
     checklist: <><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></>,
     taskdone: <><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>,
     convocatoria: <><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></>,
+    bell: <><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></>,
+    belloff: <><path d="M13.73 21a2 2 0 01-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0118 8"/><path d="M6.26 6.26A5.86 5.86 0 006 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 00-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></>,
 
   };
   return (
@@ -697,6 +704,76 @@ const Icon = ({ name }) => {
     </svg>
   );
 };
+
+// ─── FCM ─────────────────────────────────────────────────────────────────────
+// ↓ Obtené tu VAPID key en: Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+const VAPID_KEY = 'BOlW76xy4PbKcgmY0jjb7UjCtmk1qy7JLPngc6_AXFARe4CzlHfb5FTBaZBhEHaI-kd6CkFiufbpZGjqyIYhMmo';
+
+function useFCM(setToastMsg) {
+  const [notifStatus, setNotifStatus] = useState(() => {
+    if (typeof Notification === 'undefined') return 'unsupported';
+    return Notification.permission;
+  });
+
+  useEffect(() => {
+    if (!messaging || notifStatus !== 'granted') return;
+    const unsub = onMessage(messaging, (payload) => {
+      const n = payload.notification || {};
+      setToastMsg(n.title || n.body || '🔔 Nueva notificación');
+    });
+    return unsub;
+  }, [notifStatus]);
+
+  const subscribe = async () => {
+    if (notifStatus === 'denied') {
+      alert('Las notificaciones están bloqueadas. Habilitálas desde la configuración del navegador.');
+      return;
+    }
+    if (notifStatus === 'granted') return;
+    try {
+      const permission = await Notification.requestPermission();
+      setNotifStatus(permission);
+      if (permission !== 'granted') return;
+      if (!messaging) return;
+      if (VAPID_KEY === 'YOUR_VAPID_KEY_HERE') {
+        console.warn('[FCM] Agregá tu VAPID key en App.jsx para activar push notifications.');
+        return;
+      }
+      const swReg = await navigator.serviceWorker.register(
+        import.meta.env.BASE_URL + 'firebase-messaging-sw.js',
+        { scope: import.meta.env.BASE_URL }
+      );
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+      if (token) {
+        await setDoc(doc(db, 'fcm_tokens', token), {
+          token,
+          createdAt: serverTimestamp(),
+          ua: navigator.userAgent.substring(0, 150),
+        });
+      }
+    } catch (err) {
+      console.error('[FCM] Error:', err);
+    }
+  };
+
+  return { notifStatus, subscribe };
+}
+
+function NotifButton({ status, onSubscribe }) {
+  if (status === 'unsupported') return null;
+  const granted = status === 'granted';
+  return (
+    <div
+      className={`nav-item ${granted ? 'active' : ''}`}
+      onClick={!granted ? onSubscribe : undefined}
+      title={granted ? 'Notificaciones activas' : 'Activar notificaciones'}
+      style={{ cursor: granted ? 'default' : 'pointer' }}
+    >
+      <Icon name={granted ? 'bell' : 'belloff'} />
+      <span className="nav-label">Notif.</span>
+    </div>
+  );
+}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const initials = (name) => name.split(' ').slice(0,2).map(w => w[0]).join('');
@@ -792,21 +869,31 @@ function AddPlayerModal({ onClose, onAdd }) {
   );
 }
 
-function AddMatchModal({ onClose, onAdd }) {
-  const [form, setForm] = useState({ rival: '', date: '', time: '16:00', venue: '', home: true, status: 'upcoming', goalsUs: '', goalsRival: '' });
+function MatchModal({ onClose, onAdd, onSave, initial }) {
+  const isEdit = !!initial;
+  const parseGoals = (result) => {
+    if (!result) return { goalsUs: '', goalsRival: '' };
+    const [a, b] = result.split('-');
+    return { goalsUs: a ?? '', goalsRival: b ?? '' };
+  };
+  const [form, setForm] = useState(() => isEdit
+    ? { rival: initial.rival, date: initial.date, time: initial.time ?? '16:00', venue: initial.venue ?? '', home: initial.home, status: initial.status, ...parseGoals(initial.result) }
+    : { rival: '', date: '', time: '16:00', venue: '', home: true, status: 'upcoming', goalsUs: '', goalsRival: '' }
+  );
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const handle = () => {
     if (!form.rival || !form.date) return;
     const isPlayed = form.status === 'played';
     const result = isPlayed ? `${form.goalsUs}-${form.goalsRival}` : null;
-    onAdd({ rival: form.rival, date: form.date, time: form.time, venue: form.venue, home: form.home, id: Date.now(), result, status: form.status });
+    const data = { rival: form.rival, date: form.date, time: form.time, venue: form.venue, home: form.home, result, status: form.status };
+    if (isEdit) { onSave(initial.id, data); } else { onAdd({ ...data, id: Date.now() }); }
     onClose();
   };
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <span className="modal-title">Nuevo Partido</span>
+          <span className="modal-title">{isEdit ? 'Editar Partido' : 'Nuevo Partido'}</span>
           <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '6px 10px' }}><Icon name="x" /></button>
         </div>
         <div className="form-group">
@@ -869,7 +956,7 @@ function AddMatchModal({ onClose, onAdd }) {
         )}
         <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}><Icon name="calendar" /> Crear Partido</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}><Icon name="calendar" /> {isEdit ? 'Guardar Cambios' : 'Crear Partido'}</button>
         </div>
       </div>
     </div>
@@ -1046,8 +1133,9 @@ function PlayersPage({ players, addPlayer }) {
   );
 }
 
-function MatchesPage({ matches, addMatch }) {
+function MatchesPage({ matches, addMatch, updateMatch }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState(null);
   const played = matches.filter(m => m.status === 'played');
   const upcoming = matches.filter(m => m.status === 'upcoming');
 
@@ -1074,8 +1162,9 @@ function MatchesPage({ matches, addMatch }) {
               <div className="match-rival">vs {m.rival}</div>
               <div className="match-meta">📅 {formatDate(m.date)} {m.time} · {m.venue}</div>
             </div>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="badge" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa' }}>Próximo</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditing(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
             </div>
           </div>
         ))}
@@ -1096,24 +1185,26 @@ function MatchesPage({ matches, addMatch }) {
                 <div className="match-rival">vs {m.rival}</div>
                 <div className="match-meta">{m.venue}</div>
               </div>
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                 <div className="match-score">{m.result}</div>
                 <span className="badge" style={{ background: draw ? 'rgba(234,179,8,0.1)' : win ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: draw ? '#facc15' : win ? '#4ade80' : '#f87171' }}>
                   {draw ? 'Empate' : win ? 'Victoria' : 'Derrota'}
                 </span>
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditing(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
               </div>
             </div>
           );
         })}
       </>}
 
-      {showAdd && <AddMatchModal onClose={() => setShowAdd(false)} onAdd={addMatch} />}
+      {showAdd && <MatchModal onClose={() => setShowAdd(false)} onAdd={addMatch} onSave={updateMatch} />}
+      {editing && <MatchModal initial={editing} onClose={() => setEditing(null)} onAdd={addMatch} onSave={updateMatch} />}
     </div>
   );
 }
 
 function StatsPage({ players }) {
-  const sorted = [...players].filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals);
+  const sorted = [...players].sort((a, b) => a.name.localeCompare(b.name, 'es'));
   return (
     <div>
       <div className="page-header">
@@ -1174,7 +1265,7 @@ function StatsPage({ players }) {
                 </tr>
               </thead>
               <tbody>
-                {[...players].sort((a, b) => b.assists - a.assists).map((p, i) => (
+                {[...players].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((p, i) => (
                   <tr key={p.id}>
                     <td><div className="rank-pos" style={{ color: i === 0 ? '#c9a84c' : i < 3 ? '#a0c4b0' : '#3a6a4a' }}>{i + 1}</div></td>
                     <td>
@@ -1204,8 +1295,21 @@ function ConvocatoriaPage({ players, matches }) {
   const upcoming = matches.find(m => m.status === 'upcoming');
   const confirmed = players.filter(p => p.status === 'active' && attendance[p.id] === 'yes').sort((a, b) => a.number - b.number);
 
+  // Cargar y escuchar la convocatoria del partido actual desde Firestore
+  useEffect(() => {
+    if (!upcoming?.id) { setAttendance({}); return; }
+    const ref = doc(db, 'convocatorias', upcoming.id);
+    const unsub = onSnapshot(ref, snap => {
+      setAttendance(snap.exists() ? (snap.data().attendance ?? {}) : {});
+    });
+    return unsub;
+  }, [upcoming?.id]);
+
   const handleAttend = (playerId, status) => {
-    setAttendance(prev => ({ ...prev, [playerId]: status }));
+    if (!upcoming?.id) return;
+    const next = { ...attendance, [playerId]: status };
+    setAttendance(next);
+    setDoc(doc(db, 'convocatorias', upcoming.id), { attendance: next, matchId: upcoming.id, updatedAt: serverTimestamp() }, { merge: true });
     if (status === 'yes') setToast('Ya estás en la convocatoria');
   };
 
@@ -1544,19 +1648,23 @@ export default function App() {
   const [matches, matchesLoading] = useCollection('matches');
   const [posts, postsLoading] = useCollection('posts');
 
-  const addPlayer = (p) => { const { id, ...data } = p; addDoc(collection(db, 'players'), data); };
-  const addMatch  = (m) => { const { id, ...data } = m; addDoc(collection(db, 'matches'), data); };
-  const addPost    = (p) => { addDoc(collection(db, 'posts'), { title: p.title, content: p.content, type: p.type, date: p.date, createdAt: serverTimestamp() }); };
-  const updatePost = (id, data) => { updateDoc(doc(db, 'posts', id), data); };
+  const addPlayer   = (p) => { const { id, ...data } = p; addDoc(collection(db, 'players'), data); };
+  const addMatch     = (m) => { const { id, ...data } = m; addDoc(collection(db, 'matches'), data); };
+  const updateMatch  = (id, data) => { updateDoc(doc(db, 'matches', id), data); };
+  const addPost      = (p) => { addDoc(collection(db, 'posts'), { title: p.title, content: p.content, type: p.type, date: p.date, createdAt: serverTimestamp() }); };
+  const updatePost   = (id, data) => { updateDoc(doc(db, 'posts', id), data); };
 
   const loading = playersLoading && matchesLoading && postsLoading;
 
   useRegisterSW({ immediate: true });
 
+  const [fcmToast, setFcmToast] = useState(null);
+  const { notifStatus, subscribe } = useFCM(setFcmToast);
+
   const pages = {
     dashboard: <Dashboard players={players} matches={matches} posts={posts} />,
     players: <PlayersPage players={players} addPlayer={addPlayer} />,
-    matches: <MatchesPage matches={matches} addMatch={addMatch} />,
+    matches: <MatchesPage matches={matches} addMatch={addMatch} updateMatch={updateMatch} />,
     convocatoria: <ConvocatoriaPage players={players} matches={matches} />,
     stats: <StatsPage players={players} />,
     feed: <FeedPage posts={posts} addPost={addPost} updatePost={updatePost} />,
@@ -1582,6 +1690,9 @@ export default function App() {
               <span className="nav-label">{n.label}</span>
             </div>
           ))}
+          <div className="sidebar-bottom">
+            <NotifButton status={notifStatus} onSubscribe={subscribe} />
+          </div>
         </nav>
 
         {/* MAIN */}
@@ -1593,6 +1704,7 @@ export default function App() {
         </main>
       </div>
       <InstallBanner />
+      {fcmToast && <Toast msg={fcmToast} onClose={() => setFcmToast(null)} />}
     </>
   );
 }
