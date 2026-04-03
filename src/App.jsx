@@ -44,6 +44,47 @@ const MATCHES = [];
 const POSTS = [];
 
 const POSITIONS = ["Portero", "Defensa", "Mediocampista", "Delantero"];
+
+// ─── TEXTOS AUTOMÁTICOS DE PARTIDO ─────────────────────────────────────────────
+const RESULT_TEXTS = {
+  win: [
+    { title: '¡De una, chabones! 🏆', content: 'Como siempre, los pibitos del Delta salieron a romperla y la rompieron. El rival llegó confiado y se fue con las manos en los bolsillos. ¡Eso es Delta, belén!' },
+    { title: '¡Los rompimooooos! 🔥', content: 'Partido terminado, cuentas claras. Los de Delta no se anduvieron con chiquitas y le dieron un baño como la gente. ¡A festejar que se puede!' },
+    { title: '¿Quién dijo miedo? 🐮‍💨', content: 'Los carpinchos salieron a la cancha con hambre y se comieron todo. El rival no sabía dónde meterse. ¡Otra vez a cobrar, muchachos!' },
+    { title: '¡Victoria del alma! ★', content: 'No hubo caso, cuando Delta mete primera no para más nadie. El equipo estuvo filoso de arriba abajo y el resultado lo dice todo. ¡Arriba Delta!' },
+    { title: '¡Cagándolos a cascotazos! 🧠', content: 'Le mostramos cómo se juega al fútbol. Lo que fue el partido no tiene discusión: Delta manda y punto. ¡La puta madre qué equipazo!' },
+  ],
+  loss: [
+    { title: 'Nos rompieron bien el culo 😬', content: 'Qué queremos que te digamos... nos dieron una paliza de las bravas. Pero cabeza arriba, que el que no pierde nunca es porque no juega. La revancha viene.' },
+    { title: 'Fuimos, la vimos, nos la dieron 💨', content: 'Hoy no fue el día. El rival nos encontró mál parados y nos cobró carilla. A laburar esta semana que hay mucho por mejorar. Cábeza alta.' },
+    { title: 'Nos cagaron a palos ☹️', content: 'Bárbaro, perdíamos. Nos pasó el cambión por encima y no pudimos hacer nada. Ahora a masticar la bronca y volver más fuertes. ¡Dale Delta!' },
+    { title: 'Una noche para olvidar... 🛌', content: 'No nos salió una. Fueron más, nos presionaron mejor y nos metieron los goles que quisieron. La seguimos, pero hoy nos ganaron bien ganado.' },
+    { title: 'Nos pintaron la cara 😩', content: 'El rival vino, vio y conquistó. Nosotros pusimos los jugadores, ellos pusieron el fútbol. Hay que mirarse al espejo y salir a revertir esto en la próxima.' },
+  ],
+  draw: [
+    { title: 'Un punto y a casa 🤝', content: 'No fue la victoria que queríamos pero tampoco nos fueron a ganar. Punto de visitante, punto igual. A seguir sumando.' },
+    { title: 'Ni pa un lado ni pa el otro 🤷', content: 'Empate en un partido trabado donde los dos equipos se pelearon cada pelota. Por momentos bien, por momentos no tanto. A mejorar.' },
+    { title: 'El empate sabor a poco 😐', content: '\u00c9ramos superiores pero no alcanzó. Nos faltó esa chispita para definirlo. El punto suma igual, pero las ganas están de sacar los tres.' },
+    { title: 'Plata para los dos 🤜🤛', content: 'Partido parejo de principio a fin. Se repartieron los puntos y cada uno a su casa. Vendrán mejores resultados, hay equipo.' },
+    { title: 'Ni modo, chicos 🙄', content: 'Dimos todo pero el gol no quería entrar. Empate y a preparar el próximo. El equipo tiene pasta para ganar, hoy no se dio.' },
+  ],
+};
+
+const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+const autoPostForResult = (matchData) => {
+  const [a, b] = (matchData.result ?? '0-0').split('-').map(Number);
+  const win  = matchData.home ? a > b : b > a;
+  const draw = a === b;
+  const key  = draw ? 'draw' : win ? 'win' : 'loss';
+  const { title, content } = pickRandom(RESULT_TEXTS[key]);
+  return {
+    title: `${title} (${a}-${b} vs ${matchData.rival})`,
+    content,
+    type: 'match',
+    date: new Date().toISOString().split('T')[0],
+  };
+};
 const STATUS_LABELS = { active: "Activo", injured: "Lesionado", suspended: "Suspendido" };
 const STATUS_COLORS = { active: "#22c55e", injured: "#f97316", suspended: "#ef4444" };
 
@@ -778,6 +819,25 @@ function NotifButton({ status, onSubscribe }) {
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const initials = (name) => name.split(' ').slice(0,2).map(w => w[0]).join('');
 const formatDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+const computeStats = (matches) => {
+  const stats = {};
+  for (const m of matches) {
+    if (m.status !== 'played') continue;
+    for (const pid of (m.participants ?? [])) {
+      if (!stats[pid]) stats[pid] = { goals: 0, assists: 0, matches: 0 };
+      stats[pid].matches++;
+    }
+    for (const [pid, count] of Object.entries(m.scorers ?? {})) {
+      if (!stats[pid]) stats[pid] = { goals: 0, assists: 0, matches: 0 };
+      stats[pid].goals += count;
+    }
+    for (const [pid, count] of Object.entries(m.assistants ?? {})) {
+      if (!stats[pid]) stats[pid] = { goals: 0, assists: 0, matches: 0 };
+      stats[pid].assists += count;
+    }
+  }
+  return stats;
+};
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 
@@ -786,8 +846,9 @@ function Toast({ msg, onClose }) {
   return <div className="toast">🔥 {msg}</div>;
 }
 
-function PlayerModal({ player, onClose }) {
+function PlayerModal({ player, onClose, stats }) {
   if (!player) return null;
+  const st = stats ?? { goals: 0, assists: 0, matches: 0 };
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -814,9 +875,9 @@ function PlayerModal({ player, onClose }) {
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           {[
-            { val: player.goals, label: 'Goles' },
-            { val: player.assists, label: 'Asistencias' },
-            { val: player.matches, label: 'Partidos' },
+            { val: st.goals, label: 'Goles' },
+            { val: st.assists, label: 'Asistencias' },
+            { val: st.matches, label: 'Partidos' },
           ].map(s => (
             <div key={s.label} className="player-stat-box">
               <div className="player-stat-box-val">{s.val}</div>
@@ -869,7 +930,7 @@ function AddPlayerModal({ onClose, onAdd }) {
   );
 }
 
-function MatchModal({ onClose, onAdd, onSave, initial }) {
+function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStatus }) {
   const isEdit = !!initial;
   const parseGoals = (result) => {
     if (!result) return { goalsUs: '', goalsRival: '' };
@@ -877,23 +938,27 @@ function MatchModal({ onClose, onAdd, onSave, initial }) {
     return { goalsUs: a ?? '', goalsRival: b ?? '' };
   };
   const [form, setForm] = useState(() => isEdit
-    ? { rival: initial.rival, date: initial.date, time: initial.time ?? '16:00', venue: initial.venue ?? '', home: initial.home, status: initial.status, ...parseGoals(initial.result) }
-    : { rival: '', date: '', time: '16:00', venue: '', home: true, status: 'upcoming', goalsUs: '', goalsRival: '' }
+    ? { rival: initial.rival, date: initial.date, time: initial.time ?? '16:00', venue: initial.venue ?? '', home: initial.home, status: initialStatus ?? initial.status, ...parseGoals(initial.result), scorers: initial.scorers ?? {}, assistants: initial.assistants ?? {}, participants: initial.participants ?? [] }
+    : { rival: '', date: '', time: '16:00', venue: '', home: true, status: initialStatus ?? 'upcoming', goalsUs: '', goalsRival: '', scorers: {}, assistants: {}, participants: [] }
   );
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const handle = () => {
     if (!form.rival || !form.date) return;
     const isPlayed = form.status === 'played';
+    if (isPlayed && (form.goalsUs === '' || form.goalsRival === '')) return;
     const result = isPlayed ? `${form.goalsUs}-${form.goalsRival}` : null;
-    const data = { rival: form.rival, date: form.date, time: form.time, venue: form.venue, home: form.home, result, status: form.status };
+    const data = { rival: form.rival, date: form.date, time: form.time, venue: form.venue, home: form.home, result, status: form.status, scorers: isPlayed ? form.scorers : {}, assistants: isPlayed ? form.assistants : {}, participants: isPlayed ? form.participants : [] };
     if (isEdit) { onSave(initial.id, data); } else { onAdd({ ...data, id: Date.now() }); }
     onClose();
   };
+  const title = isEdit
+    ? (form.status === 'played' ? 'Cargar Resultado' : 'Editar Partido')
+    : 'Nuevo Partido';
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <span className="modal-title">{isEdit ? 'Editar Partido' : 'Nuevo Partido'}</span>
+          <span className="modal-title">{title}</span>
           <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '6px 10px' }}><Icon name="x" /></button>
         </div>
         <div className="form-group">
@@ -954,9 +1019,50 @@ function MatchModal({ onClose, onAdd, onSave, initial }) {
             </div>
           </div>
         )}
+        {form.status === 'played' && players.length > 0 && (
+          <div className="form-group">
+            <label className="form-label">Jugadores · ✓ jugó &nbsp;⚽ goles &nbsp;🎯 asist.</label>
+            <div style={{ maxHeight: 240, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {[...players].sort((a, b) => a.number - b.number).map(p => {
+                const played = form.participants.includes(p.id);
+                const goals   = form.scorers[p.id]   ?? 0;
+                const assists = form.assistants[p.id] ?? 0;
+                const toggleP = () => upd('participants', played ? form.participants.filter(id => id !== p.id) : [...form.participants, p.id]);
+                const chg = (field, delta) => {
+                  const cur = Math.max(0, ((form[field][p.id] ?? 0) + delta));
+                  const next = { ...form[field] };
+                  if (cur === 0) delete next[p.id]; else next[p.id] = cur;
+                  upd(field, next);
+                };
+                const cBtn = { width: 22, height: 22, borderRadius: 5, border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.07)', color: '#a0c4b0', fontSize: 14, fontWeight: 700, lineHeight: 1, padding: 0 };
+                return (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 10, background: played ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.02)', border: `1px solid ${played ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.05)'}` }}>
+                    <button onClick={toggleP} style={{ width: 24, height: 24, borderRadius: 6, border: 'none', cursor: 'pointer', background: played ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)', color: played ? '#4ade80' : '#3a6a4a', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{played ? '✓' : '○'}</button>
+                    <span style={{ fontSize: 11, color: '#c9a84c', fontWeight: 700, minWidth: 22, textAlign: 'right' }}>#{p.number}</span>
+                    <span style={{ fontSize: 12, color: '#e8f0eb', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span style={{ fontSize: 10 }}>⚽</span>
+                      <button style={cBtn} onClick={() => chg('scorers', -1)}>−</button>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#c9a84c', minWidth: 14, textAlign: 'center' }}>{goals}</span>
+                      <button style={cBtn} onClick={() => chg('scorers', 1)}>+</button>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span style={{ fontSize: 10 }}>🎯</span>
+                      <button style={cBtn} onClick={() => chg('assistants', -1)}>−</button>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#a0c4b0', minWidth: 14, textAlign: 'center' }}>{assists}</span>
+                      <button style={cBtn} onClick={() => chg('assistants', 1)}>+</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}><Icon name="calendar" /> {isEdit ? 'Guardar Cambios' : 'Crear Partido'}</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}
+            disabled={form.status === 'played' && (form.goalsUs === '' || form.goalsRival === '')}
+          ><Icon name="calendar" /> {isEdit ? 'Guardar Cambios' : 'Crear Partido'}</button>
         </div>
       </div>
     </div>
@@ -973,7 +1079,8 @@ function Dashboard({ players, matches, posts }) {
     return m.home ? a > b : b > a;
   }).length;
   const upcoming = matches.find(m => m.status === 'upcoming');
-  const topScorer = [...players].sort((a, b) => b.goals - a.goals)[0];
+  const playerStats = computeStats(matches);
+  const totalGoals = played.reduce((acc, m) => acc + Object.values(m.scorers ?? {}).reduce((a, b) => a + b, 0), 0);
 
   return (
     <div>
@@ -1002,7 +1109,7 @@ function Dashboard({ players, matches, posts }) {
         </div>
         <div className="stat-card">
           <div className="stat-label">Goles totales</div>
-          <div className="stat-value stat-accent">{players.reduce((a, p) => a + p.goals, 0)}</div>
+          <div className="stat-value stat-accent">{totalGoals}</div>
           <div className="stat-sub">en {played.length} partidos</div>
         </div>
         <div className="stat-card">
@@ -1038,7 +1145,12 @@ function Dashboard({ players, matches, posts }) {
         <div>
           <div className="section-title">Top Goleadores</div>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            {[...players].filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 4).map((p, i) => (
+            {[...players]
+              .map(p => ({ ...p, _goals: playerStats[p.id]?.goals ?? 0 }))
+              .filter(p => p._goals > 0)
+              .sort((a, b) => b._goals - a._goals)
+              .slice(0, 4)
+              .map((p, i) => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                 <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, fontWeight: 800, color: i === 0 ? '#c9a84c' : '#2a5a3a', minWidth: 20, textAlign: 'center' }}>{i + 1}</div>
                 <div className="player-avatar" style={{ width: 36, height: 36, fontSize: 12, marginBottom: 0 }}>{initials(p.name)}</div>
@@ -1046,7 +1158,7 @@ function Dashboard({ players, matches, posts }) {
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#e8f0eb' }}>{p.name}</div>
                   <div style={{ fontSize: 11, color: '#4a7a5a' }}>{p.position}</div>
                 </div>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: '#c9a84c' }}>{p.goals}</div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: '#c9a84c' }}>{p._goals}</div>
               </div>
             ))}
           </div>
@@ -1074,11 +1186,12 @@ function Dashboard({ players, matches, posts }) {
   );
 }
 
-function PlayersPage({ players, addPlayer }) {
+function PlayersPage({ players, addPlayer, matches }) {
   const [selected, setSelected] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState('Todos');
   const tabs = ['Todos', ...POSITIONS];
+  const playerStats = computeStats(matches);
 
   const filtered = filter === 'Todos' ? players : players.filter(p => p.position === filter);
   const sorted = [...filtered].sort((a, b) => a.number - b.number);
@@ -1114,9 +1227,9 @@ function PlayersPage({ players, addPlayer }) {
               </span>
             </div>
             <div className="player-stats-row">
-              <div className="player-stat-mini"><span>{p.goals}</span><span>Goles</span></div>
-              <div className="player-stat-mini"><span>{p.assists}</span><span>Asist.</span></div>
-              <div className="player-stat-mini"><span>{p.matches}</span><span>PJ</span></div>
+              <div className="player-stat-mini"><span>{playerStats[p.id]?.goals ?? 0}</span><span>Goles</span></div>
+              <div className="player-stat-mini"><span>{playerStats[p.id]?.assists ?? 0}</span><span>Asist.</span></div>
+              <div className="player-stat-mini"><span>{playerStats[p.id]?.matches ?? 0}</span><span>PJ</span></div>
             </div>
           </div>
         ))}
@@ -1127,17 +1240,23 @@ function PlayersPage({ players, addPlayer }) {
         )}
       </div>
 
-      {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} />}
+      {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} stats={playerStats[selected.id]} />}
       {showAdd && <AddPlayerModal onClose={() => setShowAdd(false)} onAdd={addPlayer} />}
     </div>
   );
 }
 
-function MatchesPage({ matches, addMatch, updateMatch }) {
+function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [editInitialStatus, setEditInitialStatus] = useState(null);
   const played = matches.filter(m => m.status === 'played');
   const upcoming = matches.filter(m => m.status === 'upcoming');
+  const openEdit = (m, forceStatus = null) => { setEditing(m); setEditInitialStatus(forceStatus); };
+  const handleSave = (id, data) => {
+    const prev = matches.find(m => m.id === id);
+    updateMatch(id, data, prev);
+  };
 
   return (
     <div>
@@ -1162,9 +1281,9 @@ function MatchesPage({ matches, addMatch, updateMatch }) {
               <div className="match-rival">vs {m.rival}</div>
               <div className="match-meta">📅 {formatDate(m.date)} {m.time} · {m.venue}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="badge" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa' }}>Próximo</span>
-              <button className="btn btn-ghost btn-sm" onClick={() => setEditing(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary btn-sm" onClick={() => openEdit(m, 'played')} style={{ fontSize: 12 }}>⚽ Cargar Resultado</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => openEdit(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
             </div>
           </div>
         ))}
@@ -1173,7 +1292,8 @@ function MatchesPage({ matches, addMatch, updateMatch }) {
       {played.length > 0 && <>
         <div className="section-title" style={{ marginTop: 24 }}>Resultados</div>
         {[...played].reverse().map(m => {
-          const [a, b] = m.result.split('-').map(Number);
+          const parts = (m.result ?? '0-0').split('-').map(Number);
+          const [a, b] = [isNaN(parts[0]) ? 0 : parts[0], isNaN(parts[1]) ? 0 : parts[1]];
           const win = m.home ? a > b : b > a;
           const draw = a === b;
           return (
@@ -1190,20 +1310,21 @@ function MatchesPage({ matches, addMatch, updateMatch }) {
                 <span className="badge" style={{ background: draw ? 'rgba(234,179,8,0.1)' : win ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: draw ? '#facc15' : win ? '#4ade80' : '#f87171' }}>
                   {draw ? 'Empate' : win ? 'Victoria' : 'Derrota'}
                 </span>
-                <button className="btn btn-ghost btn-sm" onClick={() => setEditing(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
+                <button className="btn btn-ghost btn-sm" onClick={() => openEdit(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
               </div>
             </div>
           );
         })}
       </>}
 
-      {showAdd && <MatchModal onClose={() => setShowAdd(false)} onAdd={addMatch} onSave={updateMatch} />}
-      {editing && <MatchModal initial={editing} onClose={() => setEditing(null)} onAdd={addMatch} onSave={updateMatch} />}
+      {showAdd && <MatchModal onClose={() => setShowAdd(false)} onAdd={addMatch} onSave={handleSave} players={players} />}
+      {editing && <MatchModal initial={editing} initialStatus={editInitialStatus} onClose={() => { setEditing(null); setEditInitialStatus(null); }} onAdd={addMatch} onSave={handleSave} players={players} />}
     </div>
   );
 }
 
-function StatsPage({ players }) {
+function StatsPage({ players, matches }) {
+  const playerStats = computeStats(matches);
   const sorted = [...players].sort((a, b) => a.name.localeCompare(b.name, 'es'));
   return (
     <div>
@@ -1241,9 +1362,9 @@ function StatsPage({ players }) {
                         </div>
                       </div>
                     </td>
-                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#c9a84c' }}>{p.goals}</td>
-                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#a0c4b0' }}>{p.assists}</td>
-                    <td style={{ textAlign: 'right', fontSize: 13, color: '#4a7a5a' }}>{p.matches}</td>
+                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#c9a84c' }}>{playerStats[p.id]?.goals ?? 0}</td>
+                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#a0c4b0' }}>{playerStats[p.id]?.assists ?? 0}</td>
+                    <td style={{ textAlign: 'right', fontSize: 13, color: '#4a7a5a' }}>{playerStats[p.id]?.matches ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1274,8 +1395,8 @@ function StatsPage({ players }) {
                         <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f0eb' }}>{p.name}</div>
                       </div>
                     </td>
-                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#a0c4b0' }}>{p.assists}</td>
-                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#c9a84c' }}>{p.goals}</td>
+                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#a0c4b0' }}>{playerStats[p.id]?.assists ?? 0}</td>
+                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#c9a84c' }}>{playerStats[p.id]?.goals ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1650,7 +1771,15 @@ export default function App() {
 
   const addPlayer   = (p) => { const { id, ...data } = p; addDoc(collection(db, 'players'), data); };
   const addMatch     = (m) => { const { id, ...data } = m; addDoc(collection(db, 'matches'), data); };
-  const updateMatch  = (id, data) => { updateDoc(doc(db, 'matches', id), data); };
+  const updateMatch  = (id, data, prevMatch) => {
+    updateDoc(doc(db, 'matches', id), data);
+    // Auto-post si se acaba de cargar un resultado nuevo
+    const isNewResult = data.status === 'played' && data.result && (!prevMatch?.result);
+    if (isNewResult) {
+      const post = autoPostForResult(data);
+      addDoc(collection(db, 'posts'), { ...post, createdAt: serverTimestamp() });
+    }
+  };
   const addPost      = (p) => { addDoc(collection(db, 'posts'), { title: p.title, content: p.content, type: p.type, date: p.date, createdAt: serverTimestamp() }); };
   const updatePost   = (id, data) => { updateDoc(doc(db, 'posts', id), data); };
 
@@ -1663,10 +1792,10 @@ export default function App() {
 
   const pages = {
     dashboard: <Dashboard players={players} matches={matches} posts={posts} />,
-    players: <PlayersPage players={players} addPlayer={addPlayer} />,
-    matches: <MatchesPage matches={matches} addMatch={addMatch} updateMatch={updateMatch} />,
+    players: <PlayersPage players={players} addPlayer={addPlayer} matches={matches} />,
+    matches: <MatchesPage matches={matches} addMatch={addMatch} updateMatch={updateMatch} players={players} />,
     convocatoria: <ConvocatoriaPage players={players} matches={matches} />,
-    stats: <StatsPage players={players} />,
+    stats: <StatsPage players={players} matches={matches} />,
     feed: <FeedPage posts={posts} addPost={addPost} updatePost={updatePost} />,
   };
 
