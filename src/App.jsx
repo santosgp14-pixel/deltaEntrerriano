@@ -887,9 +887,16 @@ function Toast({ msg, onClose }) {
   return <div className="toast">🔥 {msg}</div>;
 }
 
-function PlayerModal({ player, onClose, stats }) {
+function PlayerModal({ player, onClose, stats, onUpdate }) {
   if (!player) return null;
   const st = stats ?? { goals: 0, assists: 0, matches: 0 };
+  const [nickname, setNickname] = React.useState(player.nickname || '');
+  const [saved, setSaved] = React.useState(false);
+  const handleSaveNickname = () => {
+    if (onUpdate) onUpdate(player.id, { nickname: nickname.trim() });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -926,13 +933,24 @@ function PlayerModal({ player, onClose, stats }) {
             </div>
           ))}
         </div>
+        <div className="form-group" style={{ marginTop: 20 }}>
+          <label className="form-label">Apodo (alineación)</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input className="form-input" placeholder="Ej: Toro, Pelusa..." value={nickname}
+              onChange={e => { setNickname(e.target.value); setSaved(false); }} />
+            <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={handleSaveNickname}>
+              {saved ? '✓' : 'Guardar'}
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: '#4a7a5a', marginTop: 4 }}>Se usa en la alineación en lugar del nombre. Dejá vacío para usar el nombre.</div>
+        </div>
       </div>
     </div>
   );
 }
 
 function AddPlayerModal({ onClose, onAdd }) {
-  const [form, setForm] = useState({ name: '', number: '', position: POSITIONS[0] });
+  const [form, setForm] = useState({ name: '', nickname: '', number: '', position: POSITIONS[0] });
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const handle = () => {
     if (!form.name || !form.number) return;
@@ -949,6 +967,10 @@ function AddPlayerModal({ onClose, onAdd }) {
         <div className="form-group">
           <label className="form-label">Nombre completo</label>
           <input className="form-input" placeholder="Ej: Juan Pérez" value={form.name} onChange={e => upd('name', e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Apodo <span style={{ color: '#4a7a5a', fontWeight: 400 }}>(opcional · se usa en la alineación)</span></label>
+          <input className="form-input" placeholder="Ej: Toro, Pelusa..." value={form.nickname} onChange={e => upd('nickname', e.target.value)} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div className="form-group">
@@ -1112,7 +1134,7 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
 
 // ─── FIELD & LINEUP COMPONENTS ───────────────────────────────────────────────
 
-function SoccerFieldView({ slots, lineup, players, onSlotClick }) {
+function SoccerFieldView({ slots, lineup, players, captain, onSlotClick }) {
   const byId = Object.fromEntries(players.map(p => [p.id, p]));
   return (
     <div className="field-container">
@@ -1137,11 +1159,19 @@ function SoccerFieldView({ slots, lineup, players, onSlotClick }) {
       {slots.map(slot => {
         const pid = lineup[slot.id];
         const p = pid ? byId[pid] : null;
+        const isCaptain = p && p.id === captain;
         return (
           <div key={slot.id} className="field-slot" style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
             onClick={() => onSlotClick(slot)}>
-            <div className={`field-slot-chip ${p ? 'filled' : 'empty'}`}>{p ? initials(p.name) : '+'}</div>
-            <div className="field-slot-name">{p ? (p.name || '').split(' ')[0].toUpperCase() : slot.label}</div>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <div className={`field-slot-chip ${p ? 'filled' : 'empty'}`}>{p ? initials(p.name) : '+'}</div>
+              {isCaptain && (
+                <span style={{ position: 'absolute', top: -4, right: -4, background: '#c9a84c', color: '#0a1a12',
+                  borderRadius: '50%', width: 14, height: 14, fontSize: 8, fontWeight: 900,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>C</span>
+              )}
+            </div>
+            <div className="field-slot-name">{p ? (p.nickname || (p.name || '').split(' ')[0]).toUpperCase() : slot.label}</div>
           </div>
         );
       })}
@@ -1313,7 +1343,7 @@ function Dashboard({ players, matches, posts }) {
   );
 }
 
-function PlayersPage({ players, addPlayer, matches }) {
+function PlayersPage({ players, addPlayer, updatePlayer, matches }) {
   const [selected, setSelected] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState('Todos');
@@ -1367,7 +1397,7 @@ function PlayersPage({ players, addPlayer, matches }) {
         )}
       </div>
 
-      {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} stats={playerStats[selected.id]} />}
+      {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} stats={playerStats[selected.id]} onUpdate={updatePlayer} />}
       {showAdd && <AddPlayerModal onClose={() => setShowAdd(false)} onAdd={addPlayer} />}
     </div>
   );
@@ -1545,6 +1575,7 @@ function ConvocatoriaPage({ players, matches }) {
   // Lineup state
   const [formation, setFormation] = useState('3-3-2');
   const [lineup, setLineup] = useState({});
+  const [captain, setCaptain] = useState(null);
   const [pickingSlot, setPickingSlot] = useState(null);
 
   const upcoming = matches.find(m => m.status === 'upcoming');
@@ -1566,16 +1597,18 @@ function ConvocatoriaPage({ players, matches }) {
 
   // Cargar alineación guardada desde Firestore
   useEffect(() => {
-    if (!upcoming?.id) { setFormation('4-4-2'); setLineup({}); return; }
+    if (!upcoming?.id) { setFormation('3-3-2'); setLineup({}); setCaptain(null); return; }
     const ref = doc(db, 'alineaciones', upcoming.id);
     const unsub = onSnapshot(ref, snap => {
       if (snap.exists()) {
         const saved = snap.data().formation;
         setFormation(FORMATIONS_DEF[saved] ? saved : '3-3-2');
         setLineup(snap.data().lineup ?? {});
+        setCaptain(snap.data().captain ?? null);
       } else {
         setFormation('3-3-2');
         setLineup({});
+        setCaptain(null);
       }
     });
     return unsub;
@@ -1589,9 +1622,15 @@ function ConvocatoriaPage({ players, matches }) {
     if (status === 'yes') setToast('Confirmado ✓');
   };
 
-  const saveLineup = (newFormation, newLineup) => {
+  const saveLineup = (newFormation, newLineup, newCaptain = captain) => {
     if (!upcoming?.id) return;
-    setDoc(doc(db, 'alineaciones', upcoming.id), { formation: newFormation, lineup: newLineup, matchId: upcoming.id, updatedAt: serverTimestamp() }, { merge: true });
+    setDoc(doc(db, 'alineaciones', upcoming.id), { formation: newFormation, lineup: newLineup, captain: newCaptain, matchId: upcoming.id, updatedAt: serverTimestamp() }, { merge: true });
+  };
+
+  const handleSetCaptain = (playerId) => {
+    const next = captain === playerId ? null : playerId;
+    setCaptain(next);
+    saveLineup(formation, lineup, next);
   };
 
   const handleAssign = (slotId, playerId) => {
@@ -1613,7 +1652,7 @@ function ConvocatoriaPage({ players, matches }) {
   const changeFormation = (f) => {
     setFormation(f);
     setLineup({});
-    saveLineup(f, {});
+    saveLineup(f, {}, captain);
   };
 
   const exportCard = async () => {
@@ -1741,7 +1780,7 @@ function ConvocatoriaPage({ players, matches }) {
                   ) : confirmed.map((p, i) => (
                     <div key={p.id} className="squad-name-item" style={{ borderBottom: i < confirmed.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                       <div className="squad-name-num">{p.number}</div>
-                      <div className="squad-name-text">{(p.name || '').toUpperCase()}</div>
+                      <div className="squad-name-text">{(p.name || '').toUpperCase()}{captain === p.id && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 900, color: '#c9a84c' }}>(C)</span>}</div>
                       <div style={{ marginLeft: 'auto', fontSize: 10, color: '#3a6a4a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{p.position}</div>
                     </div>
                   ))}
@@ -1787,7 +1826,7 @@ function ConvocatoriaPage({ players, matches }) {
                 )}
                 <div style={{ fontSize: 11, color: '#3a6a4a', letterSpacing: '0.08em', fontWeight: 600, marginTop: 2 }}>{formation}</div>
               </div>
-              <SoccerFieldView slots={slots} lineup={lineup} players={players} onSlotClick={setPickingSlot} />
+              <SoccerFieldView slots={slots} lineup={lineup} players={players} captain={captain} onSlotClick={setPickingSlot} />
               <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: '#3a6a4a' }}>
                 Tocá una posición para asignar un jugador
               </div>
@@ -1817,6 +1856,13 @@ function ConvocatoriaPage({ players, matches }) {
                           <div style={{ fontSize: 12, fontWeight: 600, color: '#e8f0eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                           <div style={{ fontSize: 10, color: '#4a7a5a' }}>#{p.number}</div>
                         </div>
+                        <button
+                          onClick={() => handleSetCaptain(p.id)}
+                          title={captain === p.id ? 'Quitar capitán' : 'Asignar capitán'}
+                          style={{ width: 22, height: 22, borderRadius: 6, border: 'none', cursor: 'pointer', flexShrink: 0,
+                            background: captain === p.id ? '#c9a84c' : 'rgba(201,168,76,0.12)',
+                            color: captain === p.id ? '#0a1a12' : '#c9a84c',
+                            fontSize: 10, fontWeight: 900, lineHeight: 1 }}>C</button>
                         {isAssigned && <span style={{ fontSize: 11, color: '#c9a84c', fontWeight: 700 }}>✓</span>}
                       </div>
                     );
@@ -2045,7 +2091,8 @@ export default function App() {
   const [matches, matchesLoading] = useCollection('matches');
   const [posts, postsLoading] = useCollection('posts');
 
-  const addPlayer   = (p) => { const { id, ...data } = p; addDoc(collection(db, 'players'), data); };
+  const addPlayer    = (p) => { const { id, ...data } = p; addDoc(collection(db, 'players'), data); };
+  const updatePlayer = (id, data) => { updateDoc(doc(db, 'players', id), data); };
   const addMatch     = (m) => { const { id, ...data } = m; addDoc(collection(db, 'matches'), data); };
   const updateMatch  = (id, data, prevMatch) => {
     updateDoc(doc(db, 'matches', id), data);
@@ -2068,7 +2115,7 @@ export default function App() {
 
   const pages = {
     dashboard: <Dashboard players={players} matches={matches} posts={posts} />,
-    players: <PlayersPage players={players} addPlayer={addPlayer} matches={matches} />,
+    players: <PlayersPage players={players} addPlayer={addPlayer} updatePlayer={updatePlayer} matches={matches} />,
     matches: <MatchesPage matches={matches} addMatch={addMatch} updateMatch={updateMatch} players={players} />,
     convocatoria: <ConvocatoriaPage players={players} matches={matches} />,
     stats: <StatsPage players={players} matches={matches} />,
