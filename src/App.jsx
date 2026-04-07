@@ -7,14 +7,14 @@ import html2canvas from 'html2canvas';
 
 // ─── LOGO ─────────────────────────────────────────────────────────────────────
 const LOGO_URL = import.meta.env.BASE_URL + 'logo.png';
-const Shield = ({ size = 48, className = "" }) => (
+const Shield = ({ size = 48, className = "", style = {} }) => (
   <img
     src={LOGO_URL}
     width={size}
     height={size}
     className={className}
     alt="Delta Entrerriano"
-    style={{ objectFit: 'contain', display: 'block' }}
+    style={{ objectFit: 'contain', display: 'block', ...style }}
   />
 );
 
@@ -1708,7 +1708,7 @@ function ConvocatoriaPage({ players, matches }) {
             <div className="squad-card-wrap">
               <div ref={cardRef} className="squad-card">
                 <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                  <Shield size={72} />
+                  <Shield size={72} style={{ margin: '0 auto' }} />
                   <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.25em', color: '#c9a84c', textTransform: 'uppercase', marginTop: 12, marginBottom: 2 }}>
                     Delta Entrerriano
                   </div>
