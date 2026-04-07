@@ -45,6 +45,27 @@ const POSTS = [];
 
 const POSITIONS = ["Portero", "Defensa", "Mediocampista", "Delantero"];
 
+// Fútbol 9 — formaciones de 9 jugadores (1 POR + 8 de campo)
+const FORMATIONS_DEF = {
+  '3-3-2': [{ count: 2, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '3-2-3': [{ count: 3, label: 'DEL', y: 13 }, { count: 2, label: 'MED', y: 42 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '2-3-3': [{ count: 3, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '2-4-2': [{ count: 2, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 67 }, { count: 1, label: 'POR', y: 87 }],
+  '3-4-1': [{ count: 1, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+};
+
+function buildSlots(formLines) {
+  if (!formLines) return [];
+  const slots = [];
+  formLines.forEach((line, lineIdx) => {
+    for (let i = 0; i < line.count; i++) {
+      const x = line.count === 1 ? 50 : 10 + (80 / (line.count - 1)) * i;
+      slots.push({ id: `${lineIdx}-${i}`, label: line.label, x, y: line.y });
+    }
+  });
+  return slots;
+}
+
 // ─── TEXTOS AUTOMÁTICOS DE PARTIDO ─────────────────────────────────────────────
 const RESULT_TEXTS = {
   win: [
@@ -693,6 +714,42 @@ const STYLES = `
     .btn-header-only-icon .btn-label { display: none; }
   }
 
+  /* ── LINEUP FIELD ── */
+  .lineup-wrap { display: grid; grid-template-columns: 1fr 200px; gap: 20px; align-items: start; }
+  .field-container {
+    position: relative; width: 100%; height: 0; padding-bottom: 155%;
+    background: linear-gradient(180deg, #1d6e32 0%, #216a30 16.7%, #1d6e32 33.3%, #216a30 50%, #1d6e32 66.7%, #216a30 83.3%, #1d6e32 100%);
+    border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,0.15);
+  }
+  .field-slot {
+    position: absolute; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; cursor: pointer; z-index: 10;
+  }
+  .field-slot-chip {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; transition: transform 0.15s; box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  }
+  .field-slot-chip.empty {
+    background: rgba(255,255,255,0.12); border: 2px dashed rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.55); font-size: 16px;
+  }
+  .field-slot-chip.filled {
+    background: linear-gradient(135deg, #c9a84c, #a07830); border: 2px solid #e8c060; color: #0a1a12;
+  }
+  .field-slot:hover .field-slot-chip { transform: scale(1.12); }
+  .field-slot-name {
+    font-size: 9px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    margin-top: 3px; max-width: 52px; text-align: center;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  @media (max-width: 768px) {
+    .lineup-wrap { grid-template-columns: 1fr !important; }
+    .field-slot-chip { width: 30px; height: 30px; font-size: 10px; }
+    .field-slot-chip.empty { font-size: 14px; }
+    .field-slot-name { font-size: 8px; max-width: 44px; }
+  }
+
   /* ── FCM SIDEBAR BELL ── */
   .sidebar-bottom { margin-top: auto; }
   @media (max-width: 768px) { .sidebar-bottom { margin-top: 0; } }
@@ -817,7 +874,7 @@ function NotifButton({ status, onSubscribe }) {
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-const initials = (name) => name.split(' ').slice(0,2).map(w => w[0]).join('');
+const initials = (name) => (name || '?').split(' ').slice(0,2).map(w => w[0]).join('');
 const formatDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
 const computeStats = (matches) => {
   const stats = {};
@@ -1063,6 +1120,92 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}
             disabled={form.status === 'played' && (form.goalsUs === '' || form.goalsRival === '')}
           ><Icon name="calendar" /> {isEdit ? 'Guardar Cambios' : 'Crear Partido'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FIELD & LINEUP COMPONENTS ───────────────────────────────────────────────
+
+function SoccerFieldView({ slots, lineup, players, onSlotClick }) {
+  const byId = Object.fromEntries(players.map(p => [p.id, p]));
+  return (
+    <div className="field-container">
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+        viewBox="0 0 100 155" preserveAspectRatio="none">
+        {[0,1,2,3,4,5,6,7,8,9].map(i => (
+          <rect key={i} x={0} y={i*15.5} width={100} height={7.75} fill={i%2===0 ? 'rgba(0,0,0,0.08)' : 'transparent'} />
+        ))}
+        <rect x={4} y={4} width={92} height={147} fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+        <line x1={4} y1={77.5} x2={96} y2={77.5} stroke="rgba(255,255,255,0.65)" strokeWidth="0.5" />
+        <circle cx={50} cy={77.5} r={13} fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.5" />
+        <circle cx={50} cy={77.5} r={1.2} fill="rgba(255,255,255,0.65)" />
+        <rect x={26} y={4} width={48} height={22} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.5" />
+        <rect x={36} y={4} width={28} height={11} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.5" />
+        <circle cx={50} cy={18} r={0.9} fill="rgba(255,255,255,0.55)" />
+        <rect x={40} y={1.5} width={20} height={2.5} fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.5" />
+        <rect x={26} y={129} width={48} height={22} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.5" />
+        <rect x={36} y={140} width={28} height={11} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.5" />
+        <circle cx={50} cy={137} r={0.9} fill="rgba(255,255,255,0.55)" />
+        <rect x={40} y={151} width={20} height={2.5} fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.5" />
+      </svg>
+      {slots.map(slot => {
+        const pid = lineup[slot.id];
+        const p = pid ? byId[pid] : null;
+        return (
+          <div key={slot.id} className="field-slot" style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
+            onClick={() => onSlotClick(slot)}>
+            <div className={`field-slot-chip ${p ? 'filled' : 'empty'}`}>{p ? initials(p.name) : '+'}</div>
+            <div className="field-slot-name">{p ? (p.name || '').split(' ')[0].toUpperCase() : slot.label}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlayerPickerModal({ slot, confirmedPlayers, assignedIds, currentPlayerId, onAssign, onRemove, onClose }) {
+  const currentPlayer = confirmedPlayers.find(p => p.id === currentPlayerId);
+  const available = confirmedPlayers
+    .filter(p => p.id !== currentPlayerId && !assignedIds.includes(p.id))
+    .sort((a, b) => a.number - b.number);
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <span className="modal-title">Posición — {slot.label}</span>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '6px 10px' }}><Icon name="x" /></button>
+        </div>
+        {currentPlayer && (
+          <div style={{ marginBottom: 16 }}>
+            <div className="section-title" style={{ marginBottom: 8 }}>Asignado</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
+              <div className="player-avatar" style={{ width: 32, height: 32, fontSize: 11, marginBottom: 0 }}>{initials(currentPlayer.name)}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f0eb' }}>{currentPlayer.name}</div>
+                <div style={{ fontSize: 11, color: '#4a7a5a' }}>#{currentPlayer.number} · {currentPlayer.position}</div>
+              </div>
+              <button className="btn btn-danger btn-sm" onClick={() => onRemove(slot.id)}>Quitar</button>
+            </div>
+          </div>
+        )}
+        <div className="section-title" style={{ marginBottom: 8 }}>{currentPlayer ? 'Cambiar jugador' : 'Elegir jugador'}</div>
+        <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {available.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 20, color: '#4a7a5a', fontSize: 13 }}>
+              Sin jugadores disponibles. Confirmá asistencias en "Convocados".
+            </div>
+          ) : available.map(p => (
+            <div key={p.id} onClick={() => onAssign(slot.id, p.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10,
+                cursor: 'pointer', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.15s' }}>
+              <div className="player-avatar" style={{ width: 30, height: 30, fontSize: 10, marginBottom: 0 }}>{initials(p.name)}</div>
+              <span style={{ fontSize: 11, color: '#c9a84c', fontWeight: 700, minWidth: 22 }}>#{p.number}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#e8f0eb', flex: 1 }}>{p.name}</span>
+              <span style={{ fontSize: 11, color: '#4a7a5a' }}>{p.position}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -1409,14 +1552,25 @@ function StatsPage({ players, matches }) {
 }
 
 function ConvocatoriaPage({ players, matches }) {
+  const [tab, setTab] = useState('convocatoria');
   const [attendance, setAttendance] = useState({});
   const [toast, setToast] = useState(null);
   const cardRef = useRef(null);
+  const fieldRef = useRef(null);
+
+  // Lineup state
+  const [formation, setFormation] = useState('3-3-2');
+  const [lineup, setLineup] = useState({});
+  const [pickingSlot, setPickingSlot] = useState(null);
 
   const upcoming = matches.find(m => m.status === 'upcoming');
-  const confirmed = players.filter(p => p.status === 'active' && attendance[p.id] === 'yes').sort((a, b) => a.number - b.number);
 
-  // Cargar y escuchar la convocatoria del partido actual desde Firestore
+  // FIX: incluir lesionados que confirmaron (antes solo filtraba 'active')
+  const confirmed = players
+    .filter(p => p.status !== 'suspended' && attendance[p.id] === 'yes')
+    .sort((a, b) => a.number - b.number);
+
+  // Cargar asistencia desde Firestore
   useEffect(() => {
     if (!upcoming?.id) { setAttendance({}); return; }
     const ref = doc(db, 'convocatorias', upcoming.id);
@@ -1426,12 +1580,56 @@ function ConvocatoriaPage({ players, matches }) {
     return unsub;
   }, [upcoming?.id]);
 
+  // Cargar alineación guardada desde Firestore
+  useEffect(() => {
+    if (!upcoming?.id) { setFormation('4-4-2'); setLineup({}); return; }
+    const ref = doc(db, 'alineaciones', upcoming.id);
+    const unsub = onSnapshot(ref, snap => {
+      if (snap.exists()) {
+        const saved = snap.data().formation;
+        setFormation(FORMATIONS_DEF[saved] ? saved : '3-3-2');
+        setLineup(snap.data().lineup ?? {});
+      } else {
+        setFormation('3-3-2');
+        setLineup({});
+      }
+    });
+    return unsub;
+  }, [upcoming?.id]);
+
   const handleAttend = (playerId, status) => {
     if (!upcoming?.id) return;
     const next = { ...attendance, [playerId]: status };
     setAttendance(next);
     setDoc(doc(db, 'convocatorias', upcoming.id), { attendance: next, matchId: upcoming.id, updatedAt: serverTimestamp() }, { merge: true });
-    if (status === 'yes') setToast('Ya estás en la convocatoria');
+    if (status === 'yes') setToast('Confirmado ✓');
+  };
+
+  const saveLineup = (newFormation, newLineup) => {
+    if (!upcoming?.id) return;
+    setDoc(doc(db, 'alineaciones', upcoming.id), { formation: newFormation, lineup: newLineup, matchId: upcoming.id, updatedAt: serverTimestamp() }, { merge: true });
+  };
+
+  const handleAssign = (slotId, playerId) => {
+    const next = Object.fromEntries(Object.entries(lineup).filter(([, v]) => v !== playerId));
+    next[slotId] = playerId;
+    setLineup(next);
+    setPickingSlot(null);
+    saveLineup(formation, next);
+  };
+
+  const handleRemoveFromSlot = (slotId) => {
+    const next = { ...lineup };
+    delete next[slotId];
+    setLineup(next);
+    setPickingSlot(null);
+    saveLineup(formation, next);
+  };
+
+  const changeFormation = (f) => {
+    setFormation(f);
+    setLineup({});
+    saveLineup(f, {});
   };
 
   const exportCard = async () => {
@@ -1443,126 +1641,220 @@ function ConvocatoriaPage({ players, matches }) {
       link.download = `convocatoria-${upcoming ? upcoming.rival.replace(/\s+/g, '-').toLowerCase() : 'delta'}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   };
+
+  const exportField = async () => {
+    const el = fieldRef.current;
+    if (!el) return;
+    try {
+      const canvas = await html2canvas(el, { backgroundColor: '#0a1a12', scale: 2, useCORS: true });
+      const link = document.createElement('a');
+      link.download = `alineacion-${upcoming ? upcoming.rival.replace(/\s+/g, '-').toLowerCase() : 'delta'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) { console.error(e); }
+  };
+
+  const safeFormation = FORMATIONS_DEF[formation] ? formation : '3-3-2';
+  const slots = buildSlots(FORMATIONS_DEF[safeFormation]);
+  const assignedIds = Object.values(lineup ?? {});
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <div className="page-title">Convocatoria</div>
+          <div className="page-title">{tab === 'alineacion' ? 'Alineación' : 'Convocatoria'}</div>
           <div className="page-subtitle">{upcoming ? `vs ${upcoming.rival} · ${formatDate(upcoming.date)}` : 'Sin partido próximo'}</div>
         </div>
-        <button className="btn btn-primary" onClick={exportCard}>
-          <Icon name="download" /> Exportar PNG
+        <button className="btn btn-primary" onClick={tab === 'alineacion' ? exportField : exportCard}>
+          <Icon name="download" /> Exportar
         </button>
       </div>
 
-      <div className="convocatoria-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
-        {/* ASISTENCIA */}
-        <div>
-          <div className="section-title">Confirmar asistencia</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {players.filter(p => p.status !== 'suspended').map(p => (
-              <div key={p.id} className="card-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div className="player-avatar" style={{ width: 36, height: 36, fontSize: 12, marginBottom: 0 }}>{initials(p.name)}</div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#e8f0eb' }}>{p.name}</div>
-                    <div style={{ fontSize: 11, color: '#4a7a5a' }}>#{p.number} · {p.position}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {[{ k: 'yes', e: '✓', col: '#4ade80' }, { k: 'maybe', e: '?', col: '#facc15' }, { k: 'no', e: '✕', col: '#f87171' }].map(btn => (
-                    <button key={btn.k}
-                      onClick={() => handleAttend(p.id, btn.k)}
-                      style={{
-                        width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
-                        background: attendance[p.id] === btn.k ? `${btn.col}22` : 'rgba(255,255,255,0.04)',
-                        color: attendance[p.id] === btn.k ? btn.col : '#3a6a4a',
-                        fontSize: 13, fontWeight: 700, transition: 'all 0.15s',
-                        outline: attendance[p.id] === btn.k ? `1.5px solid ${btn.col}` : '1px solid rgba(255,255,255,0.06)',
-                      }}
-                    >{btn.e}</button>
-                  ))}
-                </div>
+      <div className="tabs">
+        <button className={`tab ${tab === 'convocatoria' ? 'active' : ''}`} onClick={() => setTab('convocatoria')}>📋 Convocados</button>
+        <button className={`tab ${tab === 'alineacion' ? 'active' : ''}`} onClick={() => setTab('alineacion')}>⚽ Alineación</button>
+      </div>
+
+      {tab === 'convocatoria' && (
+        <div className="convocatoria-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+          {/* ASISTENCIA */}
+          <div>
+            <div className="section-title">Confirmar asistencia</div>
+            {!upcoming && (
+              <div className="card" style={{ marginBottom: 16, textAlign: 'center', color: '#4a7a5a', fontSize: 14 }}>
+                Sin partido próximo. Creá uno en la sección Partidos.
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* CARD CONVOCATORIA */}
-        <div>
-          <div className="section-title">Card visual · {confirmed.length} confirmados</div>
-          <div className="squad-card-wrap">
-            <div ref={cardRef} className="squad-card">
-              {/* Header */}
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <Shield size={72} />
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.25em', color: '#c9a84c', textTransform: 'uppercase', marginTop: 12, marginBottom: 2 }}>
-                  Delta Entrerriano
-                </div>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, letterSpacing: '0.06em', color: '#e8f0eb', textTransform: 'uppercase', lineHeight: 1 }}>
-                  CONVOCADOS
-                </div>
-              </div>
-
-              <div className="squad-card-line" />
-
-              {/* Match info */}
-              {upcoming && (
-                <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: '#e8f0eb', letterSpacing: '0.04em' }}>
-                    VS {upcoming.rival.toUpperCase()}
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {players.filter(p => p.status !== 'suspended').map(p => (
+                <div key={p.id} className="card-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: !upcoming ? 0.5 : 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="player-avatar" style={{ width: 36, height: 36, fontSize: 12, marginBottom: 0 }}>{initials(p.name)}</div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#e8f0eb' }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: p.status === 'injured' ? '#f97316' : '#4a7a5a' }}>
+                        #{p.number} · {p.status === 'injured' ? '🤕 Lesionado' : p.position}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 13, color: '#7aaa8a', marginTop: 6, letterSpacing: '0.06em' }}>
-                    {formatDate(upcoming.date)} · {upcoming.time}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {[{ k: 'yes', e: '✓', col: '#4ade80' }, { k: 'maybe', e: '?', col: '#facc15' }, { k: 'no', e: '✕', col: '#f87171' }].map(btn => (
+                      <button key={btn.k}
+                        onClick={() => upcoming && handleAttend(p.id, btn.k)}
+                        style={{
+                          width: 32, height: 32, borderRadius: 8, border: 'none',
+                          cursor: upcoming ? 'pointer' : 'default',
+                          background: attendance[p.id] === btn.k ? `${btn.col}22` : 'rgba(255,255,255,0.04)',
+                          color: attendance[p.id] === btn.k ? btn.col : '#3a6a4a',
+                          fontSize: 13, fontWeight: 700, transition: 'all 0.15s',
+                          outline: attendance[p.id] === btn.k ? `1.5px solid ${btn.col}` : '1px solid rgba(255,255,255,0.06)',
+                        }}
+                      >{btn.e}</button>
+                    ))}
                   </div>
-                  <div style={{ fontSize: 12, color: '#4a7a5a', marginTop: 2 }}>{upcoming.venue}</div>
                 </div>
+              ))}
+              {players.filter(p => p.status !== 'suspended').length === 0 && (
+                <div className="empty-state"><div className="empty-state-icon">👕</div><div className="empty-state-text">No hay jugadores activos</div></div>
               )}
+            </div>
+          </div>
 
-              <div className="squad-card-line" />
-
-              {/* Players list */}
-              <div style={{ marginBottom: 16 }}>
-                {confirmed.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '24px 0', color: '#3a6a4a', fontSize: 13 }}>
-                    Sin confirmaciones aún
+          {/* CARD CONVOCATORIA */}
+          <div>
+            <div className="section-title">Card visual · {confirmed.length} confirmados</div>
+            <div className="squad-card-wrap">
+              <div ref={cardRef} className="squad-card">
+                <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                  <Shield size={72} />
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.25em', color: '#c9a84c', textTransform: 'uppercase', marginTop: 12, marginBottom: 2 }}>
+                    Delta Entrerriano
                   </div>
-                ) : (
-                  confirmed.map((p, i) => (
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, letterSpacing: '0.06em', color: '#e8f0eb', textTransform: 'uppercase', lineHeight: 1 }}>
+                    CONVOCADOS
+                  </div>
+                </div>
+                <div className="squad-card-line" />
+                {upcoming && (
+                  <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                    <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: '#e8f0eb', letterSpacing: '0.04em' }}>
+                      VS {upcoming.rival.toUpperCase()}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#7aaa8a', marginTop: 6, letterSpacing: '0.06em' }}>
+                      {formatDate(upcoming.date)} · {upcoming.time}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#4a7a5a', marginTop: 2 }}>{upcoming.venue}</div>
+                  </div>
+                )}
+                <div className="squad-card-line" />
+                <div style={{ marginBottom: 16 }}>
+                  {confirmed.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px 0', color: '#3a6a4a', fontSize: 13 }}>
+                      Sin confirmaciones aún
+                    </div>
+                  ) : confirmed.map((p, i) => (
                     <div key={p.id} className="squad-name-item" style={{ borderBottom: i < confirmed.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                       <div className="squad-name-num">{p.number}</div>
-                      <div className="squad-name-text">{p.name.toUpperCase()}</div>
+                      <div className="squad-name-text">{(p.name || '').toUpperCase()}</div>
                       <div style={{ marginLeft: 'auto', fontSize: 10, color: '#3a6a4a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{p.position}</div>
                     </div>
-                  ))
-                )}
-              </div>
-
-              <div className="squad-card-line" />
-
-              {/* Footer */}
-              <div style={{ textAlign: 'center', paddingTop: 4 }}>
-                <div style={{ fontSize: 11, color: '#3a6a4a', letterSpacing: '0.15em', fontWeight: 600, textTransform: 'uppercase' }}>
-                  🌿 Temporada {new Date().getFullYear()}
+                  ))}
                 </div>
+                <div className="squad-card-line" />
+                <div style={{ textAlign: 'center', paddingTop: 4 }}>
+                  <div style={{ fontSize: 11, color: '#3a6a4a', letterSpacing: '0.15em', fontWeight: 600, textTransform: 'uppercase' }}>
+                    🌿 Temporada {new Date().getFullYear()}
+                  </div>
+                </div>
+              </div>
+              {confirmed.length > 0 && (
+                <div className="attend-feedback" style={{ marginTop: 16 }}>
+                  <span>🔥</span>
+                  <span>{confirmed.length} jugadores confirmados para el partido</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'alineacion' && (
+        <div>
+          {/* Selector de formación */}
+          <div className="tabs" style={{ marginBottom: 20 }}>
+            {Object.keys(FORMATIONS_DEF).map(f => (
+              <button key={f} className={`tab ${formation === f ? 'active' : ''}`} onClick={() => changeFormation(f)}>{f}</button>
+            ))}
+          </div>
+
+          <div className="lineup-wrap">
+            {/* Campo de juego */}
+            <div ref={fieldRef} style={{ background: '#0a1a12', borderRadius: 16, padding: 16 }}>
+              <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 900, color: '#c9a84c', letterSpacing: '0.1em' }}>
+                  DELTA ENTRERRIANO
+                </div>
+                {upcoming && (
+                  <div style={{ fontSize: 12, color: '#4a7a5a', marginTop: 2 }}>
+                    vs {upcoming.rival.toUpperCase()} · {formatDate(upcoming.date)}
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: '#3a6a4a', letterSpacing: '0.08em', fontWeight: 600, marginTop: 2 }}>{formation}</div>
+              </div>
+              <SoccerFieldView slots={slots} lineup={lineup} players={players} onSlotClick={setPickingSlot} />
+              <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: '#3a6a4a' }}>
+                Tocá una posición para asignar un jugador
               </div>
             </div>
 
-            {confirmed.length > 0 && (
-              <div className="attend-feedback" style={{ marginTop: 16 }}>
-                <span>🔥</span>
-                <span>{confirmed.length} jugadores confirmados para el partido</span>
-              </div>
-            )}
+            {/* Lista de confirmados */}
+            <div>
+              <div className="section-title">Confirmados ({confirmed.length})</div>
+              {confirmed.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', color: '#4a7a5a', fontSize: 13, padding: 16 }}>
+                  Confirmá jugadores en "Convocados" primero.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {confirmed.map(p => {
+                    const isAssigned = assignedIds.includes(p.id);
+                    return (
+                      <div key={p.id} style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '8px 10px', borderRadius: 10,
+                        background: isAssigned ? 'rgba(201,168,76,0.08)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${isAssigned ? 'rgba(201,168,76,0.2)' : 'rgba(255,255,255,0.05)'}`,
+                        opacity: isAssigned ? 0.7 : 1,
+                      }}>
+                        <div className="player-avatar" style={{ width: 28, height: 28, fontSize: 10, marginBottom: 0 }}>{initials(p.name)}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#e8f0eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                          <div style={{ fontSize: 10, color: '#4a7a5a' }}>#{p.number}</div>
+                        </div>
+                        {isAssigned && <span style={{ fontSize: 11, color: '#c9a84c', fontWeight: 700 }}>✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
+      {pickingSlot && (
+        <PlayerPickerModal
+          slot={pickingSlot}
+          confirmedPlayers={confirmed}
+          assignedIds={assignedIds}
+          currentPlayerId={lineup[pickingSlot.id]}
+          onAssign={handleAssign}
+          onRemove={handleRemoveFromSlot}
+          onClose={() => setPickingSlot(null)}
+        />
+      )}
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
     </div>
   );
