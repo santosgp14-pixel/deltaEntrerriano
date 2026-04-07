@@ -890,8 +890,8 @@ function Toast({ msg, onClose }) {
 function PlayerModal({ player, onClose, stats, onUpdate }) {
   if (!player) return null;
   const st = stats ?? { goals: 0, assists: 0, matches: 0 };
-  const [nickname, setNickname] = React.useState(player.nickname || '');
-  const [saved, setSaved] = React.useState(false);
+  const [nickname, setNickname] = useState(player.nickname || '');
+  const [saved, setSaved] = useState(false);
   const handleSaveNickname = () => {
     if (onUpdate) onUpdate(player.id, { nickname: nickname.trim() });
     setSaved(true);
