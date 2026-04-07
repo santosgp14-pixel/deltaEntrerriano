@@ -1827,9 +1827,6 @@ function ConvocatoriaPage({ players, matches }) {
                 <div style={{ fontSize: 11, color: '#3a6a4a', letterSpacing: '0.08em', fontWeight: 600, marginTop: 2 }}>{formation}</div>
               </div>
               <SoccerFieldView slots={slots} lineup={lineup} players={players} captain={captain} onSlotClick={setPickingSlot} />
-              <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: '#3a6a4a' }}>
-                Tocá una posición para asignar un jugador
-              </div>
             </div>
 
             {/* Lista de confirmados */}
