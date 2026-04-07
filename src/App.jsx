@@ -27,11 +27,15 @@ const POSITIONS = ["Portero", "Defensa", "Mediocampista", "Delantero"];
 
 // Fútbol 9 — formaciones de 9 jugadores (1 POR + 8 de campo)
 const FORMATIONS_DEF = {
-  '3-3-2': [{ count: 2, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
-  '3-2-3': [{ count: 3, label: 'DEL', y: 13 }, { count: 2, label: 'MED', y: 42 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
-  '2-3-3': [{ count: 3, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
-  '2-4-2': [{ count: 2, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 67 }, { count: 1, label: 'POR', y: 87 }],
-  '3-4-1': [{ count: 1, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '3-1-3-1': [{ count: 1, label: 'DEL', y: 10 }, { count: 3, label: 'MCO', y: 28 }, { count: 1, label: 'MDF', y: 48 }, { count: 3, label: 'DEF', y: 67 }, { count: 1, label: 'POR', y: 87 }],
+  '3-3-2':   [{ count: 2, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '3-2-3':   [{ count: 3, label: 'DEL', y: 13 }, { count: 2, label: 'MED', y: 42 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '1-3-3-1': [{ count: 1, label: 'DEL', y: 10 }, { count: 3, label: 'MCO', y: 30 }, { count: 3, label: 'MDF', y: 52 }, { count: 1, label: 'LIB', y: 70 }, { count: 1, label: 'POR', y: 87 }],
+  '2-3-3':   [{ count: 3, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '2-4-2':   [{ count: 2, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 67 }, { count: 1, label: 'POR', y: 87 }],
+  '3-4-1':   [{ count: 1, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '4-3-1':   [{ count: 1, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 4, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '4-2-2':   [{ count: 2, label: 'DEL', y: 13 }, { count: 2, label: 'MED', y: 42 }, { count: 4, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
 };
 
 function buildSlots(formLines) {
