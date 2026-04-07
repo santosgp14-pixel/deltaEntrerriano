@@ -5,37 +5,17 @@ import { collection, addDoc, onSnapshot, serverTimestamp, doc, updateDoc, setDoc
 import { getToken, onMessage } from 'firebase/messaging';
 import html2canvas from 'html2canvas';
 
-// ─── ESCUDO SVG (Carpincho) ──────────────────────────────────────────────────
+// ─── LOGO ─────────────────────────────────────────────────────────────────────
+const LOGO_URL = import.meta.env.BASE_URL + 'logo.png';
 const Shield = ({ size = 48, className = "" }) => (
-  <svg width={size} height={size} viewBox="0 0 80 90" className={className} xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#1a3a2a" />
-        <stop offset="100%" stopColor="#0d2018" />
-      </linearGradient>
-    </defs>
-    {/* Escudo forma */}
-    <path d="M40 2 L75 15 L75 52 Q75 75 40 88 Q5 75 5 52 L5 15 Z" fill="url(#shieldGrad)" stroke="#c9a84c" strokeWidth="2.5" />
-    {/* Banda horizontal dorada */}
-    <path d="M5 38 L75 38 L75 52 L5 52 Z" fill="#c9a84c" opacity="0.25" />
-    {/* Carpincho minimalista */}
-    <g transform="translate(40, 42) scale(1)">
-      {/* Cuerpo */}
-      <ellipse cx="0" cy="4" rx="14" ry="9" fill="#c9a84c" opacity="0.9" />
-      {/* Cabeza */}
-      <ellipse cx="-7" cy="-2" rx="9" ry="7" fill="#c9a84c" opacity="0.9" />
-      {/* Nariz */}
-      <ellipse cx="-13" cy="-1" rx="3" ry="2.5" fill="#c9a84c" />
-      {/* Ojo */}
-      <circle cx="-9" cy="-4" r="1.2" fill="#0d2018" />
-      {/* Pata delantera */}
-      <rect x="-11" y="9" width="4" height="6" rx="2" fill="#c9a84c" opacity="0.85" />
-      {/* Pata trasera */}
-      <rect x="7" y="10" width="4" height="6" rx="2" fill="#c9a84c" opacity="0.85" />
-    </g>
-    {/* Letras DE */}
-    <text x="40" y="26" textAnchor="middle" fill="#c9a84c" fontSize="8" fontWeight="700" fontFamily="serif" letterSpacing="2">DELTA</text>
-  </svg>
+  <img
+    src={LOGO_URL}
+    width={size}
+    height={size}
+    className={className}
+    alt="Delta Entrerriano"
+    style={{ objectFit: 'contain', display: 'block' }}
+  />
 );
 
 // ─── DATOS MOCK ──────────────────────────────────────────────────────────────
