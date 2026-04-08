@@ -422,13 +422,16 @@ const STYLES = `
   }
   .squad-card {
     width: 420px;
+    height: 747px;
     background: linear-gradient(160deg, #0f2a1c 0%, #071510 60%, #0d1f10 100%);
     border-radius: 20px;
-    padding: 36px 32px;
+    padding: 28px 30px;
     margin: 0 auto;
     position: relative;
     overflow: hidden;
     border: 1px solid rgba(201,168,76,0.2);
+    display: flex;
+    flex-direction: column;
   }
   .squad-card::before {
     content: '';
@@ -439,7 +442,8 @@ const STYLES = `
   .squad-card-line {
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(201,168,76,0.5), transparent);
-    margin: 20px 0;
+    margin: 12px 0;
+    flex-shrink: 0;
   }
   .squad-name-item {
     display: flex; align-items: center; gap: 12px;
@@ -1750,43 +1754,55 @@ function ConvocatoriaPage({ players, matches }) {
             <div className="section-title">Card visual · {confirmed.length} confirmados</div>
             <div className="squad-card-wrap">
               <div ref={cardRef} className="squad-card">
-                <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                  <Shield size={72} style={{ margin: '0 auto' }} />
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.25em', color: '#c9a84c', textTransform: 'uppercase', marginTop: 12, marginBottom: 2 }}>
+                {/* Header */}
+                <div style={{ textAlign: 'center', marginBottom: 10, flexShrink: 0 }}>
+                  <Shield size={58} style={{ margin: '0 auto' }} />
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.25em', color: '#c9a84c', textTransform: 'uppercase', marginTop: 8, marginBottom: 2 }}>
                     Delta Entrerriano
                   </div>
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, letterSpacing: '0.06em', color: '#e8f0eb', textTransform: 'uppercase', lineHeight: 1 }}>
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 36, fontWeight: 900, letterSpacing: '0.06em', color: '#e8f0eb', textTransform: 'uppercase', lineHeight: 1 }}>
                     CONVOCADOS
                   </div>
                 </div>
                 <div className="squad-card-line" />
                 {upcoming && (
-                  <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                    <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: '#e8f0eb', letterSpacing: '0.04em' }}>
+                  <div style={{ textAlign: 'center', marginBottom: 8, flexShrink: 0 }}>
+                    <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 800, color: '#e8f0eb', letterSpacing: '0.04em' }}>
                       VS {upcoming.rival.toUpperCase()}
                     </div>
-                    <div style={{ fontSize: 13, color: '#7aaa8a', marginTop: 6, letterSpacing: '0.06em' }}>
+                    <div style={{ fontSize: 12, color: '#7aaa8a', marginTop: 4, letterSpacing: '0.06em' }}>
                       {formatDate(upcoming.date)} · {upcoming.time}
                     </div>
-                    <div style={{ fontSize: 12, color: '#4a7a5a', marginTop: 2 }}>{upcoming.venue}</div>
+                    <div style={{ fontSize: 11, color: '#4a7a5a', marginTop: 2 }}>{upcoming.venue}</div>
                   </div>
                 )}
                 <div className="squad-card-line" />
-                <div style={{ marginBottom: 16 }}>
-                  {confirmed.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0', color: '#3a6a4a', fontSize: 13 }}>
-                      Sin confirmaciones aún
-                    </div>
-                  ) : confirmed.map((p, i) => (
-                    <div key={p.id} className="squad-name-item" style={{ borderBottom: i < confirmed.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                      <div className="squad-name-num">{p.number}</div>
-                      <div className="squad-name-text">{(p.name || '').toUpperCase()}{captain === p.id && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 900, color: '#c9a84c' }}>(C)</span>}</div>
-                      <div style={{ marginLeft: 'auto', fontSize: 10, color: '#3a6a4a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{p.position}</div>
-                    </div>
-                  ))}
+
+                {/* Lista de jugadores con logo de fondo */}
+                <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                  <img src={LOGO_URL} alt="" style={{
+                    position: 'absolute', left: '50%', top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '78%', opacity: 0.07,
+                    pointerEvents: 'none', userSelect: 'none',
+                  }} />
+                  <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    {confirmed.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '24px 0', color: '#3a6a4a', fontSize: 13 }}>
+                        Sin confirmaciones aún
+                      </div>
+                    ) : confirmed.map((p, i) => (
+                      <div key={p.id} className="squad-name-item" style={{ borderBottom: i < confirmed.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', padding: '5px 0' }}>
+                        <div className="squad-name-num">{p.number}</div>
+                        <div className="squad-name-text">{(p.name || '').toUpperCase()}{captain === p.id && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 900, color: '#c9a84c' }}>(C)</span>}</div>
+                        <div style={{ marginLeft: 'auto', fontSize: 10, color: '#3a6a4a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{p.position}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+
                 <div className="squad-card-line" />
-                <div style={{ textAlign: 'center', paddingTop: 4 }}>
+                <div style={{ textAlign: 'center', paddingTop: 2, flexShrink: 0 }}>
                   <div style={{ fontSize: 11, color: '#3a6a4a', letterSpacing: '0.15em', fontWeight: 600, textTransform: 'uppercase' }}>
                     🌿 Temporada {new Date().getFullYear()}
                   </div>
