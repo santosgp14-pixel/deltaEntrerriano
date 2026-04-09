@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db, messaging } from './firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
 import html2canvas from 'html2canvas';
 
@@ -79,7 +79,7 @@ const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const autoPostForResult = (matchData) => {
   const [a, b] = (matchData.result ?? '0-0').split('-').map(Number);
-  const win  = matchData.home ? a > b : b > a;
+  const win  = a > b;
   const draw = a === b;
   const key  = draw ? 'draw' : win ? 'win' : 'loss';
   const { title, content } = pickRandom(RESULT_TEXTS[key]);
@@ -775,6 +775,7 @@ const Icon = ({ name }) => {
     formation: <><rect x="4" y="3" width="16" height="18" rx="1"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="7" cy="13" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="13" r="1" fill="currentColor" stroke="none"/><circle cx="7" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/></>,
     soccerball: <><circle cx="12" cy="12" r="10"/><path d="M12 2l3.09 9.26L22 12l-6.91 5.74L17 22l-5-3.82L7 22l1.91-4.26L2 12l6.91-.74L12 2z"/></>,
     lineup: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/><circle cx="6" cy="6" r="1" fill="currentColor" stroke="none"/></>,
+    photo: <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></>,
     checkbox: <><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></>,
     usercheck: <><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></>,
     checklist: <><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></>,
@@ -1237,7 +1238,7 @@ function Dashboard({ players, matches, posts }) {
   const wins = played.filter(m => {
     if (!m.result) return false;
     const [a, b] = m.result.split('-').map(Number);
-    return m.home ? a > b : b > a;
+    return a > b;
   }).length;
   const upcoming = matches.find(m => m.status === 'upcoming');
   const playerStats = computeStats(matches);
@@ -1407,16 +1408,226 @@ function PlayersPage({ players, addPlayer, updatePlayer, matches }) {
   );
 }
 
+// ─── MATCH PREVIEW CARD ──────────────────────────────────────────────────────
+function MatchPreviewCardModal({ match, onClose }) {
+  const cardRef = useRef(null);
+
+  const exportCard = async () => {
+    const el = cardRef.current;
+    if (!el) return;
+    try {
+      const canvas = await html2canvas(el, { backgroundColor: '#071510', scale: 2, useCORS: true });
+      const link = document.createElement('a');
+      link.download = `previo-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) { console.error(e); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <span className="modal-title">Imagen del Partido</span>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '6px 10px' }}><Icon name="x" /></button>
+        </div>
+
+        <div ref={cardRef} style={{
+          width: '100%', maxWidth: 420, margin: '0 auto',
+          background: 'linear-gradient(160deg, #0f2a1c 0%, #071510 55%, #0d1f10 100%)',
+          borderRadius: 20,
+          padding: '36px 28px 28px',
+          border: '1.5px solid rgba(201,168,76,0.35)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 65%)', pointerEvents: 'none' }} />
+
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 24, position: 'relative' }}>
+            <Shield size={76} style={{ margin: '0 auto 10px' }} />
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.28em', color: '#c9a84c', textTransform: 'uppercase' }}>Delta Entrerriano</div>
+            <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.6), transparent)', marginTop: 14 }} />
+          </div>
+
+          {/* Label */}
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <span style={{ display: 'inline-block', background: 'rgba(201,168,76,0.12)', color: '#c9a84c', border: '1.5px solid rgba(201,168,76,0.35)', borderRadius: 999, padding: '5px 28px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase' }}>Próximo Partido</span>
+          </div>
+
+          {/* VS */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#7aaa8a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Delta</div>
+              <div style={{ width: 64, height: 64, margin: '0 auto', borderRadius: '50%', background: 'linear-gradient(135deg,#1a3a2a,#2a5a3a)', border: '2px solid rgba(201,168,76,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Shield size={40} />
+              </div>
+            </div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: '#c9a84c', lineHeight: 1 }}>VS</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#7aaa8a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.rival}</div>
+              <div style={{ width: 64, height: 64, margin: '0 auto', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '2px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: '#4a7a5a' }}>
+                {(match.rival || '?').slice(0, 2).toUpperCase()}
+              </div>
+            </div>
+          </div>
+
+          {/* Info */}
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', marginBottom: 16 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 16 }}>📅</span>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#e8f0eb', letterSpacing: '0.03em' }}>{formatDate(match.date)} — {match.time}</span>
+            </div>
+            {match.venue && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 16 }}>📍</span>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#e8f0eb', letterSpacing: '0.03em' }}>{match.venue}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 16 }}>{match.home ? '🏠' : '✈️'}</span>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#e8f0eb', letterSpacing: '0.03em' }}>{match.home ? 'Local' : 'Visitante'}</span>
+            </div>
+          </div>
+
+          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)', marginTop: 20, marginBottom: 12 }} />
+          <div style={{ textAlign: 'center', fontSize: 11, color: '#3a6a4a', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>🌿 Temporada {new Date().getFullYear()}</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cerrar</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={exportCard}><Icon name="download" /> Descargar imagen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MATCH RESULT CARD ───────────────────────────────────────────────────────
+function MatchResultCardModal({ match, players, onClose }) {
+  const cardRef = useRef(null);
+  const [a, b] = (match.result ?? '0-0').split('-').map(Number);
+  const win = a > b;
+  const draw = a === b;
+  const resultLabel = draw ? 'EMPATE' : win ? 'VICTORIA' : 'DERROTA';
+  const resultColor = draw ? '#facc15' : win ? '#4ade80' : '#f87171';
+  const resultBg    = draw ? 'rgba(234,179,8,0.15)' : win ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)';
+
+  const byId = Object.fromEntries(players.map(p => [p.id, p]));
+  const scorersList = Object.entries(match.scorers ?? {})
+    .filter(([, count]) => count > 0)
+    .map(([pid, count]) => ({ name: byId[pid]?.name ?? 'Jugador', count }))
+    .sort((x, y) => y.count - x.count);
+
+  const exportCard = async () => {
+    const el = cardRef.current;
+    if (!el) return;
+    try {
+      const canvas = await html2canvas(el, { backgroundColor: '#071510', scale: 2, useCORS: true });
+      const link = document.createElement('a');
+      link.download = `resultado-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) { console.error(e); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <span className="modal-title">Imagen del Resultado</span>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '6px 10px' }}><Icon name="x" /></button>
+        </div>
+
+        {/* Tarjeta exportable */}
+        <div ref={cardRef} style={{
+          width: '100%', maxWidth: 420, margin: '0 auto',
+          background: 'linear-gradient(160deg, #0f2a1c 0%, #071510 55%, #0d1f10 100%)',
+          borderRadius: 20,
+          padding: '32px 28px 24px',
+          border: `1.5px solid ${resultColor}55`,
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'block',
+        }}>
+          {/* Brillo de fondo */}
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: `radial-gradient(ellipse at 50% 0%, ${resultColor}10 0%, transparent 65%)`, pointerEvents: 'none' }} />
+
+          {/* Encabezado */}
+          <div style={{ textAlign: 'center', marginBottom: 18, position: 'relative' }}>
+            <Shield size={72} style={{ margin: '0 auto 10px' }} />
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.28em', color: '#c9a84c', textTransform: 'uppercase' }}>Delta Entrerriano</div>
+            <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${resultColor}88, transparent)`, marginTop: 14 }} />
+          </div>
+
+          {/* Info del partido */}
+          <div style={{ textAlign: 'center', fontSize: 11, color: '#4a7a5a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>
+            {match.home ? '🏠 Local' : '✈️ Visitante'} · {formatDate(match.date)}
+          </div>
+
+          {/* Marcador */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#7aaa8a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Delta</div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 88, fontWeight: 900, color: '#e8f0eb', lineHeight: 1 }}>{a}</div>
+            </div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 36, fontWeight: 700, color: '#2a5a3a', paddingBottom: 10, userSelect: 'none' }}>—</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#7aaa8a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.rival}</div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 88, fontWeight: 900, color: '#e8f0eb', lineHeight: 1 }}>{b}</div>
+            </div>
+          </div>
+
+          {/* Badge resultado */}
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <span style={{ display: 'inline-block', background: resultBg, color: resultColor, border: `1.5px solid ${resultColor}66`, borderRadius: 999, padding: '6px 32px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 900, letterSpacing: '0.1em' }}>{resultLabel}</span>
+          </div>
+
+          {/* Goleadores */}
+          {scorersList.length > 0 && (
+            <>
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', marginBottom: 14 }} />
+              <div style={{ marginBottom: 4 }}>
+                {scorersList.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 2px', borderBottom: i < scorersList.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <span style={{ fontSize: 13 }}>⚽</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#e8f0eb', flex: 1 }}>{s.name}</span>
+                    {s.count > 1 && <span style={{ fontSize: 12, fontWeight: 700, color: '#c9a84c', background: 'rgba(201,168,76,0.12)', borderRadius: 20, padding: '1px 10px' }}>×{s.count}</span>}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Pie */}
+          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)', marginTop: 20, marginBottom: 12 }} />
+          <div style={{ textAlign: 'center', fontSize: 11, color: '#3a6a4a', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>🌿 Temporada {new Date().getFullYear()}</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cerrar</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={exportCard}><Icon name="download" /> Descargar imagen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [editInitialStatus, setEditInitialStatus] = useState(null);
+  const [resultCardMatch, setResultCardMatch] = useState(null);
+  const [previewCardMatch, setPreviewCardMatch] = useState(null);
   const played = matches.filter(m => m.status === 'played');
   const upcoming = matches.filter(m => m.status === 'upcoming');
   const openEdit = (m, forceStatus = null) => { setEditing(m); setEditInitialStatus(forceStatus); };
   const handleSave = (id, data) => {
     const prev = matches.find(m => m.id === id);
+    const isNewResult = data.status === 'played' && data.result && !prev?.result;
     updateMatch(id, data, prev);
+    if (isNewResult) setResultCardMatch(data);
   };
 
   return (
@@ -1444,6 +1655,7 @@ function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <button className="btn btn-primary btn-sm" onClick={() => openEdit(m, 'played')} style={{ fontSize: 12 }}>⚽ Cargar Resultado</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setPreviewCardMatch(m)} title="Imagen del partido" style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="photo" /></button>
               <button className="btn btn-ghost btn-sm" onClick={() => openEdit(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
             </div>
           </div>
@@ -1455,7 +1667,7 @@ function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
         {[...played].reverse().map(m => {
           const parts = (m.result ?? '0-0').split('-').map(Number);
           const [a, b] = [isNaN(parts[0]) ? 0 : parts[0], isNaN(parts[1]) ? 0 : parts[1]];
-          const win = m.home ? a > b : b > a;
+          const win = a > b;
           const draw = a === b;
           return (
             <div key={m.id} className="match-row">
@@ -1471,7 +1683,10 @@ function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
                 <span className="badge" style={{ background: draw ? 'rgba(234,179,8,0.1)' : win ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: draw ? '#facc15' : win ? '#4ade80' : '#f87171' }}>
                   {draw ? 'Empate' : win ? 'Victoria' : 'Derrota'}
                 </span>
-                <button className="btn btn-ghost btn-sm" onClick={() => openEdit(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setResultCardMatch(m)} title="Imagen del resultado" style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="photo" /></button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
+                </div>
               </div>
             </div>
           );
@@ -1480,6 +1695,8 @@ function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
 
       {showAdd && <MatchModal onClose={() => setShowAdd(false)} onAdd={addMatch} onSave={handleSave} players={players} />}
       {editing && <MatchModal initial={editing} initialStatus={editInitialStatus} onClose={() => { setEditing(null); setEditInitialStatus(null); }} onAdd={addMatch} onSave={handleSave} players={players} />}
+      {resultCardMatch && <MatchResultCardModal match={resultCardMatch} players={players} onClose={() => setResultCardMatch(null)} />}
+      {previewCardMatch && <MatchPreviewCardModal match={previewCardMatch} onClose={() => setPreviewCardMatch(null)} />}
     </div>
   );
 }
@@ -1903,7 +2120,7 @@ function ConvocatoriaPage({ players, matches }) {
   );
 }
 
-function FeedPage({ posts, addPost, updatePost }) {
+function FeedPage({ posts, addPost, updatePost, deletePost }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: '', content: '', type: 'training' });
   const [editing, setEditing] = useState(null); // { id, title, content, type }
@@ -1997,9 +2214,14 @@ function FeedPage({ posts, addPost, updatePost }) {
                 <div className="post-type-badge" style={{ background: typeColors[p.type]?.[0], color: typeColors[p.type]?.[1] }}>
                   {typeLabels[p.type] || p.type}
                 </div>
-                <button className="btn btn-ghost btn-sm" onClick={() => setEditing({ id: p.id, title: p.title, content: p.content, type: p.type })} style={{ padding: '4px 8px', opacity: 0.7 }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setEditing({ id: p.id, title: p.title, content: p.content, type: p.type })} style={{ padding: '4px 8px', opacity: 0.7 }}>
                   <Icon name="edit" />
-                </button>
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={() => { if (window.confirm('¿Eliminar esta novedad?')) deletePost(p.id); }} style={{ padding: '4px 8px' }}>
+                    <Icon name="trash" />
+                  </button>
+                </div>
               </div>
               <div className="post-title">{p.title}</div>
               <div className="post-body">{p.content}</div>
@@ -2118,6 +2340,7 @@ export default function App() {
   };
   const addPost      = (p) => { addDoc(collection(db, 'posts'), { title: p.title, content: p.content, type: p.type, date: p.date, createdAt: serverTimestamp() }); };
   const updatePost   = (id, data) => { updateDoc(doc(db, 'posts', id), data); };
+  const deletePost   = (id) => { deleteDoc(doc(db, 'posts', id)); };
 
   const loading = playersLoading && matchesLoading && postsLoading;
 
@@ -2132,7 +2355,7 @@ export default function App() {
     matches: <MatchesPage matches={matches} addMatch={addMatch} updateMatch={updateMatch} players={players} />,
     convocatoria: <ConvocatoriaPage players={players} matches={matches} />,
     stats: <StatsPage players={players} matches={matches} />,
-    feed: <FeedPage posts={posts} addPost={addPost} updatePost={updatePost} />,
+    feed: <FeedPage posts={posts} addPost={addPost} updatePost={updatePost} deletePost={deletePost} />,
   };
 
   return (
