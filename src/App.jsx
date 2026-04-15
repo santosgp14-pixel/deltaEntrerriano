@@ -892,7 +892,7 @@ function Toast({ msg, onClose }) {
   return <div className="toast">🔥 {msg}</div>;
 }
 
-function PlayerModal({ player, onClose, stats, onUpdate }) {
+function PlayerModal({ player, onClose, stats, onUpdate, onEdit, onDelete }) {
   if (!player) return null;
   const st = stats ?? { goals: 0, assists: 0, matches: 0 };
   const [nickname, setNickname] = useState(player.nickname || '');
@@ -949,6 +949,18 @@ function PlayerModal({ player, onClose, stats, onUpdate }) {
           </div>
           <div style={{ fontSize: 11, color: '#4a7a5a', marginTop: 4 }}>Se usa en la alineación en lugar del nombre. Dejá vacío para usar el nombre.</div>
         </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          {onEdit && (
+            <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onEdit}>
+              <Icon name="edit" /> Editar
+            </button>
+          )}
+          {onDelete && (
+            <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => { if (window.confirm(`¿Eliminar a ${player.name}? Esta acción no se puede deshacer.`)) { onDelete(); onClose(); } }}>
+              <Icon name="trash" /> Eliminar
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -992,6 +1004,72 @@ function AddPlayerModal({ onClose, onAdd }) {
         <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}><Icon name="shirt" /> Agregar Jugador</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditPlayerModal({ player, onClose, onSave }) {
+  const [form, setForm] = useState({
+    name: player.name || '',
+    nickname: player.nickname || '',
+    number: player.number || '',
+    position: player.position || POSITIONS[0],
+    status: player.status || 'active',
+  });
+  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const handle = () => {
+    if (!form.name || !form.number) return;
+    onSave(player.id, { ...form, number: parseInt(form.number) });
+    onClose();
+  };
+  const STATUS_OPTIONS = [
+    { value: 'active', label: 'Activo' },
+    { value: 'injured', label: 'Lesionado' },
+    { value: 'suspended', label: 'Suspendido' },
+  ];
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <span className="modal-title">Editar Jugador</span>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '6px 10px' }}><Icon name="x" /></button>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Nombre completo</label>
+          <input className="form-input" placeholder="Ej: Juan Pérez" value={form.name} onChange={e => upd('name', e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Apodo <span style={{ color: '#4a7a5a', fontWeight: 400 }}>(opcional · se usa en la alineación)</span></label>
+          <input className="form-input" placeholder="Ej: Toro, Pelusa..." value={form.nickname} onChange={e => upd('nickname', e.target.value)} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="form-group">
+            <label className="form-label">Número</label>
+            <input className="form-input" type="number" placeholder="10" value={form.number} onChange={e => upd('number', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Posición</label>
+            <select className="form-select" value={form.position} onChange={e => upd('position', e.target.value)}>
+              {POSITIONS.map(p => <option key={p}>{p}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Estado</label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {STATUS_OPTIONS.map(o => (
+              <button key={o.value} className="btn"
+                style={{ flex: 1, background: form.status === o.value ? `${STATUS_COLORS[o.value]}20` : 'rgba(255,255,255,0.03)', color: form.status === o.value ? STATUS_COLORS[o.value] : '#4a7a5a', border: `1px solid ${form.status === o.value ? STATUS_COLORS[o.value] + '55' : 'rgba(255,255,255,0.08)'}` }}
+                onClick={() => upd('status', o.value)}
+              >{o.label}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}><Icon name="check" /> Guardar Cambios</button>
         </div>
       </div>
     </div>
@@ -1348,9 +1426,10 @@ function Dashboard({ players, matches, posts }) {
   );
 }
 
-function PlayersPage({ players, addPlayer, updatePlayer, matches }) {
+function PlayersPage({ players, addPlayer, updatePlayer, deletePlayer, matches }) {
   const [selected, setSelected] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showEdit, setShowEdit] = useState(null);
   const [filter, setFilter] = useState('Todos');
   const tabs = ['Todos', ...POSITIONS];
   const playerStats = computeStats(matches);
@@ -1402,8 +1481,18 @@ function PlayersPage({ players, addPlayer, updatePlayer, matches }) {
         )}
       </div>
 
-      {selected && <PlayerModal player={selected} onClose={() => setSelected(null)} stats={playerStats[selected.id]} onUpdate={updatePlayer} />}
+      {selected && (
+        <PlayerModal
+          player={selected}
+          onClose={() => setSelected(null)}
+          stats={playerStats[selected.id]}
+          onUpdate={updatePlayer}
+          onEdit={() => { setShowEdit(selected); setSelected(null); }}
+          onDelete={() => { deletePlayer(selected.id); setSelected(null); }}
+        />
+      )}
       {showAdd && <AddPlayerModal onClose={() => setShowAdd(false)} onAdd={addPlayer} />}
+      {showEdit && <EditPlayerModal player={showEdit} onClose={() => setShowEdit(null)} onSave={updatePlayer} />}
     </div>
   );
 }
@@ -2328,6 +2417,7 @@ export default function App() {
 
   const addPlayer    = (p) => { const { id, ...data } = p; addDoc(collection(db, 'players'), data); };
   const updatePlayer = (id, data) => { updateDoc(doc(db, 'players', id), data); };
+  const deletePlayer = (id) => { deleteDoc(doc(db, 'players', id)); };
   const addMatch     = (m) => { const { id, ...data } = m; addDoc(collection(db, 'matches'), data); };
   const updateMatch  = (id, data, prevMatch) => {
     updateDoc(doc(db, 'matches', id), data);
@@ -2351,7 +2441,7 @@ export default function App() {
 
   const pages = {
     dashboard: <Dashboard players={players} matches={matches} posts={posts} />,
-    players: <PlayersPage players={players} addPlayer={addPlayer} updatePlayer={updatePlayer} matches={matches} />,
+    players: <PlayersPage players={players} addPlayer={addPlayer} updatePlayer={updatePlayer} deletePlayer={deletePlayer} matches={matches} />,
     matches: <MatchesPage matches={matches} addMatch={addMatch} updateMatch={updateMatch} players={players} />,
     convocatoria: <ConvocatoriaPage players={players} matches={matches} />,
     stats: <StatsPage players={players} matches={matches} />,
