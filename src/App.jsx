@@ -1875,12 +1875,22 @@ function StatsPage({ players, matches }) {
   );
 }
 
-function ConvocatoriaPage({ players, matches }) {
+function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
   const [tab, setTab] = useState('convocatoria');
   const [attendance, setAttendance] = useState({});
   const [toast, setToast] = useState(null);
   const cardRef = useRef(null);
   const fieldRef = useRef(null);
+
+  // DT local edit state
+  const [localDt, setLocalDt] = useState(dtName);
+  const [dtSaved, setDtSaved] = useState(false);
+  useEffect(() => { setLocalDt(dtName); }, [dtName]);
+  const handleSaveDt = () => {
+    if (onSaveDt) onSaveDt(localDt);
+    setDtSaved(true);
+    setTimeout(() => setDtSaved(false), 1500);
+  };
 
   // Lineup state
   const [formation, setFormation] = useState('3-3-2');
@@ -2020,6 +2030,20 @@ function ConvocatoriaPage({ players, matches }) {
                 Sin partido próximo. Creá uno en la sección Partidos.
               </div>
             )}
+            {/* DT */}
+            <div className="card-sm" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#c9a84c', textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0 }}>DT</span>
+              <input
+                className="form-input"
+                placeholder="Nombre del DT..."
+                value={localDt}
+                onChange={e => { setLocalDt(e.target.value); setDtSaved(false); }}
+                style={{ flex: 1 }}
+              />
+              <button className="btn btn-primary btn-sm" style={{ flexShrink: 0 }} onClick={handleSaveDt}>
+                {dtSaved ? '✓' : 'Guardar'}
+              </button>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {players.filter(p => p.status !== 'suspended').map(p => (
                 <div key={p.id} className="card-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: !upcoming ? 0.5 : 1 }}>
@@ -2107,6 +2131,14 @@ function ConvocatoriaPage({ players, matches }) {
                   </div>
                 </div>
 
+                <div className="squad-card-line" />
+                {dtName && (
+                  <div style={{ textAlign: 'center', paddingBottom: 4, flexShrink: 0 }}>
+                    <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#7aaa8a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      DT: {dtName.toUpperCase()}
+                    </div>
+                  </div>
+                )}
                 <div className="squad-card-line" />
                 <div style={{ textAlign: 'center', paddingTop: 2, flexShrink: 0 }}>
                   <div style={{ fontSize: 11, color: '#3a6a4a', letterSpacing: '0.15em', fontWeight: 600, textTransform: 'uppercase' }}>
@@ -2415,6 +2447,19 @@ export default function App() {
   const [matches, matchesLoading] = useCollection('matches');
   const [posts, postsLoading] = useCollection('posts');
 
+  // DT
+  const [dtName, setDtNameState] = useState('');
+  useEffect(() => {
+    const ref = doc(db, 'club', 'config');
+    const unsub = onSnapshot(ref, snap => {
+      setDtNameState(snap.exists() ? (snap.data().dtName ?? '') : '');
+    });
+    return unsub;
+  }, []);
+  const saveDtName = (name) => {
+    setDoc(doc(db, 'club', 'config'), { dtName: name.trim() }, { merge: true });
+  };
+
   const addPlayer    = (p) => { const { id, ...data } = p; addDoc(collection(db, 'players'), data); };
   const updatePlayer = (id, data) => { updateDoc(doc(db, 'players', id), data); };
   const deletePlayer = (id) => { deleteDoc(doc(db, 'players', id)); };
@@ -2443,7 +2488,7 @@ export default function App() {
     dashboard: <Dashboard players={players} matches={matches} posts={posts} />,
     players: <PlayersPage players={players} addPlayer={addPlayer} updatePlayer={updatePlayer} deletePlayer={deletePlayer} matches={matches} />,
     matches: <MatchesPage matches={matches} addMatch={addMatch} updateMatch={updateMatch} players={players} />,
-    convocatoria: <ConvocatoriaPage players={players} matches={matches} />,
+    convocatoria: <ConvocatoriaPage players={players} matches={matches} dtName={dtName} onSaveDt={saveDtName} />,
     stats: <StatsPage players={players} matches={matches} />,
     feed: <FeedPage posts={posts} addPost={addPost} updatePost={updatePost} deletePost={deletePost} />,
   };
