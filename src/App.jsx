@@ -34,7 +34,7 @@ const FORMATIONS_DEF = {
   '2-3-3':   [{ count: 3, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
   '2-4-2':   [{ count: 2, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 67 }, { count: 1, label: 'POR', y: 87 }],
   '3-4-1':   [{ count: 1, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
-  '4-3-1':   [{ count: 1, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 4, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '4-3-1':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'MCO', y: 28 }, { count: 2, label: 'MDF', y: 45 }, { count: 4, label: 'DEF', y: 68 }, { count: 1, label: 'POR', y: 87 }],
   '4-2-2':   [{ count: 2, label: 'DEL', y: 13 }, { count: 2, label: 'MED', y: 42 }, { count: 4, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
 };
 
@@ -877,12 +877,44 @@ const computeStats = (matches) => {
       if (!stats[pid]) stats[pid] = { goals: 0, assists: 0, matches: 0 };
       stats[pid].goals += count;
     }
-    for (const [pid, count] of Object.entries(m.assistants ?? {})) {
-      if (!stats[pid]) stats[pid] = { goals: 0, assists: 0, matches: 0 };
-      stats[pid].assists += count;
-    }
+
   }
   return stats;
+};
+
+// Por posición: puntos por arco en 0
+const CLEAN_SHEET_BONUS = { 'Portero': 1.5, 'Defensa': 1.0, 'Mediocampista': 0.3, 'Delantero': 0.0 };
+
+// Puntaje automático por partido
+const autoRatePlayers = ({ participants = [], scorers = {}, goalsUs = 0, goalsRival = 0, lineupForMatch = {}, players = [] }) => {
+  const byId = Object.fromEntries(players.map(p => [p.id, p]));
+  const win = goalsUs > goalsRival;
+  const loss = goalsUs < goalsRival;
+  const cleanSheet = goalsRival === 0;
+  const starterIds = new Set(Object.values(lineupForMatch));
+  const ratings = {};
+  for (const pid of participants) {
+    const player = byId[pid];
+    if (!player) continue;
+    const pos = player.position ?? '';
+    let score = 6; // base por jugar
+    // Resultado del equipo
+    if (win) score += 0.5;
+    if (loss) score -= 0.5;
+    // Goles marcados (más valioso para def/arquero)
+    const goals = scorers[pid] ?? 0;
+    const goalMultiplier = (pos === 'Portero' || pos === 'Defensa') ? 2.0 : (pos === 'Mediocampista') ? 1.5 : 1.0;
+    if (goals === 1) score += 1.0 * goalMultiplier;
+    else if (goals === 2) score += 2.5 * goalMultiplier;
+    else if (goals >= 3) score += (4.0 + (goals - 3) * 1.5) * goalMultiplier;
+    // Portero/Defensas: bonus por portería imbatida
+    if (cleanSheet) score += (CLEAN_SHEET_BONUS[pos] ?? 0);
+    // Titular (en la alineación guardada)
+    if (starterIds.has(pid)) score += 0.3;
+    // Clamp 1–10, redondear a entero
+    ratings[pid] = Math.min(10, Math.max(1, Math.round(score)));
+  }
+  return ratings;
 };
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
@@ -929,7 +961,6 @@ function PlayerModal({ player, onClose, stats, onUpdate, onEdit, onDelete }) {
         <div style={{ display: 'flex', gap: 12 }}>
           {[
             { val: st.goals, label: 'Goles' },
-            { val: st.assists, label: 'Asistencias' },
             { val: st.matches, label: 'Partidos' },
           ].map(s => (
             <div key={s.label} className="player-stat-box">
@@ -971,7 +1002,7 @@ function AddPlayerModal({ onClose, onAdd }) {
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const handle = () => {
     if (!form.name || !form.number) return;
-    onAdd({ ...form, id: Date.now(), status: 'active', goals: 0, assists: 0, matches: 0, number: parseInt(form.number) });
+    onAdd({ ...form, id: Date.now(), status: 'active', goals: 0, matches: 0, number: parseInt(form.number) });
     onClose();
   };
   return (
@@ -1076,24 +1107,39 @@ function EditPlayerModal({ player, onClose, onSave }) {
   );
 }
 
-function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStatus }) {
+function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStatus, defaultParticipants = [], lineupForMatch = {} }) {
   const isEdit = !!initial;
   const parseGoals = (result) => {
     if (!result) return { goalsUs: '', goalsRival: '' };
     const [a, b] = result.split('-');
     return { goalsUs: a ?? '', goalsRival: b ?? '' };
   };
-  const [form, setForm] = useState(() => isEdit
-    ? { rival: initial.rival, date: initial.date, time: initial.time ?? '16:00', venue: initial.venue ?? '', home: initial.home, status: initialStatus ?? initial.status, ...parseGoals(initial.result), scorers: initial.scorers ?? {}, assistants: initial.assistants ?? {}, participants: initial.participants ?? [] }
-    : { rival: '', date: '', time: '16:00', venue: '', home: true, status: initialStatus ?? 'upcoming', goalsUs: '', goalsRival: '', scorers: {}, assistants: {}, participants: [] }
-  );
+  const [form, setForm] = useState(() => {
+    const savedParticipants = isEdit ? (initial.participants ?? []) : [];
+    const participants = savedParticipants.length > 0 ? savedParticipants : defaultParticipants;
+    return isEdit
+      ? { rival: initial.rival, date: initial.date, time: initial.time ?? '16:00', venue: initial.venue ?? '', home: initial.home, status: initialStatus ?? initial.status, ...parseGoals(initial.result), scorers: initial.scorers ?? {}, assistants: initial.assistants ?? {}, participants, ratings: initial.ratings ?? {}, mvp: initial.mvp ?? null }
+      : { rival: '', date: '', time: '16:00', venue: '', home: true, status: initialStatus ?? 'upcoming', goalsUs: '', goalsRival: '', scorers: {}, assistants: {}, participants, ratings: {}, mvp: null };
+  });
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const handleAutoRate = () => {
+    if (!form.participants.length) return;
+    const newRatings = autoRatePlayers({
+      participants: form.participants,
+      scorers: form.scorers,
+      goalsUs: parseInt(form.goalsUs) || 0,
+      goalsRival: parseInt(form.goalsRival) || 0,
+      lineupForMatch,
+      players,
+    });
+    upd('ratings', newRatings);
+  };
   const handle = () => {
     if (!form.rival || !form.date) return;
     const isPlayed = form.status === 'played';
     if (isPlayed && (form.goalsUs === '' || form.goalsRival === '')) return;
     const result = isPlayed ? `${form.goalsUs}-${form.goalsRival}` : null;
-    const data = { rival: form.rival, date: form.date, time: form.time, venue: form.venue, home: form.home, result, status: form.status, scorers: isPlayed ? form.scorers : {}, assistants: isPlayed ? form.assistants : {}, participants: isPlayed ? form.participants : [] };
+    const data = { rival: form.rival, date: form.date, time: form.time, venue: form.venue, home: form.home, result, status: form.status, scorers: isPlayed ? form.scorers : {}, assistants: isPlayed ? form.assistants : {}, participants: isPlayed ? form.participants : [], ratings: isPlayed ? form.ratings : {}, mvp: isPlayed ? form.mvp : null };
     if (isEdit) { onSave(initial.id, data); } else { onAdd({ ...data, id: Date.now() }); }
     onClose();
   };
@@ -1167,12 +1213,15 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
         )}
         {form.status === 'played' && players.length > 0 && (
           <div className="form-group">
-            <label className="form-label">Jugadores · ✓ jugó &nbsp;⚽ goles &nbsp;🎯 asist.</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span className="form-label" style={{ marginBottom: 0 }}>Jugadores · ✓ jugó &nbsp;⚽ goles &nbsp;0-10 nota &nbsp;★ MVP</span>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handleAutoRate} title="Calcular notas automáticamente según goles, resultado y posición" style={{ fontSize: 11, padding: '3px 10px', flexShrink: 0 }}>⚡ Auto-notas</button>
+            </div>
             <div style={{ maxHeight: 240, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
               {[...players].sort((a, b) => a.number - b.number).map(p => {
                 const played = form.participants.includes(p.id);
                 const goals   = form.scorers[p.id]   ?? 0;
-                const assists = form.assistants[p.id] ?? 0;
+                const isStarter = Object.values(lineupForMatch).includes(p.id);
                 const toggleP = () => upd('participants', played ? form.participants.filter(id => id !== p.id) : [...form.participants, p.id]);
                 const chg = (field, delta) => {
                   const cur = Math.max(0, ((form[field][p.id] ?? 0) + delta));
@@ -1185,19 +1234,34 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 10, background: played ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.02)', border: `1px solid ${played ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.05)'}` }}>
                     <button onClick={toggleP} style={{ width: 24, height: 24, borderRadius: 6, border: 'none', cursor: 'pointer', background: played ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)', color: played ? '#4ade80' : '#3a6a4a', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{played ? '✓' : '○'}</button>
                     <span style={{ fontSize: 11, color: '#c9a84c', fontWeight: 700, minWidth: 22, textAlign: 'right' }}>#{p.number}</span>
-                    <span style={{ fontSize: 12, color: '#e8f0eb', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                    <span style={{ fontSize: 12, color: '#e8f0eb', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}{isStarter && <span style={{ fontSize: 9, background: 'rgba(201,168,76,0.18)', color: '#c9a84c', borderRadius: 3, padding: '1px 4px', fontWeight: 700, marginLeft: 4 }}>TIT</span>}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                       <span style={{ fontSize: 10 }}>⚽</span>
                       <button style={cBtn} onClick={() => chg('scorers', -1)}>−</button>
                       <span style={{ fontSize: 12, fontWeight: 700, color: '#c9a84c', minWidth: 14, textAlign: 'center' }}>{goals}</span>
                       <button style={cBtn} onClick={() => chg('scorers', 1)}>+</button>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <span style={{ fontSize: 10 }}>🎯</span>
-                      <button style={cBtn} onClick={() => chg('assistants', -1)}>−</button>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#a0c4b0', minWidth: 14, textAlign: 'center' }}>{assists}</span>
-                      <button style={cBtn} onClick={() => chg('assistants', 1)}>+</button>
-                    </div>
+                    {played && (
+                      <>
+                        <input
+                          type="number" min="1" max="10"
+                          placeholder="—"
+                          value={form.ratings[p.id] ?? ''}
+                          onChange={e => {
+                            const v = Math.min(10, Math.max(1, parseInt(e.target.value) || 0));
+                            const next = { ...form.ratings };
+                            if (!v) delete next[p.id]; else next[p.id] = v;
+                            upd('ratings', next);
+                          }}
+                          style={{ width: 36, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, color: '#e8f0eb', fontSize: 11, fontWeight: 700, textAlign: 'center', padding: '2px 0', outline: 'none' }}
+                        />
+                        <button
+                          title="MVP"
+                          onClick={() => upd('mvp', form.mvp === p.id ? null : p.id)}
+                          style={{ width: 22, height: 22, borderRadius: 5, border: 'none', cursor: 'pointer', background: form.mvp === p.id ? 'rgba(201,168,76,0.3)' : 'rgba(255,255,255,0.06)', fontSize: 12, lineHeight: 1, padding: 0 }}
+                        >★</button>
+                      </>
+                    )}
                   </div>
                 );
               })}
@@ -1408,13 +1472,20 @@ function Dashboard({ players, matches, posts }) {
       {/* ÚLTIMAS NOVEDADES */}
       <div style={{ marginTop: 32 }}>
         <div className="section-title">Últimas Novedades</div>
-        {posts.slice(0, 2).map(p => (
+        {[...posts]
+          .sort((a, b) => {
+            const ta = a.createdAt?.seconds ?? (a.date ? new Date(a.date).getTime() / 1000 : 0);
+            const tb = b.createdAt?.seconds ?? (b.date ? new Date(b.date).getTime() / 1000 : 0);
+            return tb - ta;
+          })
+          .slice(0, 2)
+          .map(p => (
           <div key={p.id} className="post-card">
             <div className="post-type-badge" style={{
-              background: p.type === 'match' ? 'rgba(34,197,94,0.1)' : p.type === 'squad' ? 'rgba(201,168,76,0.1)' : 'rgba(59,130,246,0.1)',
-              color: p.type === 'match' ? '#4ade80' : p.type === 'squad' ? '#c9a84c' : '#60a5fa'
+              background: p.type === 'match' ? 'rgba(34,197,94,0.1)' : p.type === 'squad' ? 'rgba(201,168,76,0.1)' : p.type === 'info' ? 'rgba(168,85,247,0.1)' : 'rgba(59,130,246,0.1)',
+              color: p.type === 'match' ? '#4ade80' : p.type === 'squad' ? '#c9a84c' : p.type === 'info' ? '#c084fc' : '#60a5fa'
             }}>
-              {p.type === 'match' ? 'Partido' : p.type === 'squad' ? 'Convocatoria' : 'Entrenamiento'}
+              {p.type === 'match' ? 'Partido' : p.type === 'squad' ? 'Convocatoria' : p.type === 'info' ? 'Información' : 'Entrenamiento'}
             </div>
             <div className="post-title">{p.title}</div>
             <div className="post-body">{p.content}</div>
@@ -1469,7 +1540,6 @@ function PlayersPage({ players, addPlayer, updatePlayer, deletePlayer, matches }
             </div>
             <div className="player-stats-row">
               <div className="player-stat-mini"><span>{playerStats[p.id]?.goals ?? 0}</span><span>Goles</span></div>
-              <div className="player-stat-mini"><span>{playerStats[p.id]?.assists ?? 0}</span><span>Asist.</span></div>
               <div className="player-stat-mini"><span>{playerStats[p.id]?.matches ?? 0}</span><span>PJ</span></div>
             </div>
           </div>
@@ -1703,15 +1773,167 @@ function MatchResultCardModal({ match, players, onClose }) {
   );
 }
 
+// ─── MATCH RATINGS CARD ──────────────────────────────────────────────────────
+function MatchRatingsCardModal({ match, players, onClose }) {
+  const cardRef = useRef(null);
+  const byId = Object.fromEntries(players.map(p => [p.id, p]));
+  const [a, b] = (match.result ?? '0-0').split('-').map(Number);
+  const win = a > b; const draw = a === b;
+  const resultColor = draw ? '#facc15' : win ? '#4ade80' : '#f87171';
+
+  const participantPlayers = (match.participants ?? [])
+    .map(id => byId[id])
+    .filter(Boolean)
+    .sort((x, y) => (match.ratings?.[y.id] ?? 0) - (match.ratings?.[x.id] ?? 0));
+
+  const ratingColor = (r) => {
+    if (!r) return '#3a6a4a';
+    if (r >= 9) return '#c9a84c';
+    if (r >= 7) return '#4ade80';
+    if (r >= 5) return '#facc15';
+    return '#f87171';
+  };
+
+  const exportCard = async () => {
+    const el = cardRef.current;
+    if (!el) return;
+    try {
+      const canvas = await html2canvas(el, { backgroundColor: '#071510', scale: 2, useCORS: true });
+      const link = document.createElement('a');
+      link.download = `notas-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) { console.error(e); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <span className="modal-title">Notas del Partido</span>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '6px 10px' }}><Icon name="x" /></button>
+        </div>
+
+        <div ref={cardRef} style={{
+          width: '100%', maxWidth: 420, margin: '0 auto',
+          background: 'linear-gradient(160deg, #0f2a1c 0%, #071510 55%, #0d1f10 100%)',
+          borderRadius: 20,
+          padding: '28px 24px 20px',
+          border: `1.5px solid ${resultColor}55`,
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: `radial-gradient(ellipse at 50% 0%, ${resultColor}10 0%, transparent 60%)`, pointerEvents: 'none' }} />
+
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 16, position: 'relative' }}>
+            <Shield size={56} style={{ margin: '0 auto 8px' }} />
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.28em', color: '#c9a84c', textTransform: 'uppercase' }}>Delta Entrerriano</div>
+          </div>
+
+          {/* Resultado */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: '#e8f0eb', lineHeight: 1 }}>{a}</span>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, color: '#3a6a4a', fontWeight: 700 }}>vs</span>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: '#e8f0eb', lineHeight: 1 }}>{b}</span>
+          </div>
+          <div style={{ textAlign: 'center', marginBottom: 4 }}>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#4a7a5a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>vs {match.rival}</span>
+          </div>
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <span style={{ display: 'inline-block', background: `${resultColor}18`, color: resultColor, border: `1px solid ${resultColor}44`, borderRadius: 999, padding: '3px 18px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: '0.1em' }}>
+              {draw ? 'EMPATE' : win ? 'VICTORIA' : 'DERROTA'}
+            </span>
+          </div>
+
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', marginBottom: 14 }} />
+
+          {/* MVP */}
+          {match.mvp && byId[match.mvp] && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
+              <span style={{ fontSize: 20 }}>★</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: '#c9a84c', textTransform: 'uppercase', marginBottom: 2 }}>MVP del Partido</div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, fontWeight: 800, color: '#e8f0eb', textTransform: 'uppercase' }}>{byId[match.mvp].name}</div>
+              </div>
+              {match.ratings?.[match.mvp] && (
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 32, fontWeight: 900, color: '#c9a84c', lineHeight: 1 }}>{match.ratings[match.mvp]}</div>
+              )}
+            </div>
+          )}
+
+          {/* Ratings list */}
+          {participantPlayers.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {participantPlayers.map(p => {
+                const rating = match.ratings?.[p.id];
+                const isMvp = match.mvp === p.id;
+                const col = ratingColor(rating);
+                return (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#c9a84c', minWidth: 24, textAlign: 'right' }}>#{p.number}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: isMvp ? '#e8f0eb' : '#a0c4b0', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}{isMvp ? ' ★' : ''}</span>
+                    {rating ? (
+                      <>
+                        <div style={{ width: 60, height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
+                          <div style={{ width: `${rating * 10}%`, height: '100%', background: col, borderRadius: 4 }} />
+                        </div>
+                        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 800, color: col, minWidth: 20, textAlign: 'right', lineHeight: 1 }}>{rating}</span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 11, color: '#3a6a4a', minWidth: 80, textAlign: 'right' }}>Sin nota</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {participantPlayers.length === 0 && (
+            <div style={{ textAlign: 'center', color: '#3a6a4a', fontSize: 13, padding: '12px 0' }}>Sin jugadores registrados</div>
+          )}
+
+          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)', marginTop: 16, marginBottom: 10 }} />
+          <div style={{ textAlign: 'center', fontSize: 10, color: '#3a6a4a', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>🌿 Temporada {new Date().getFullYear()}</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cerrar</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={exportCard}><Icon name="download" /> Descargar imagen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [editInitialStatus, setEditInitialStatus] = useState(null);
+  const [editDefaultParticipants, setEditDefaultParticipants] = useState([]);
+  const [editLineup, setEditLineup] = useState({});
   const [resultCardMatch, setResultCardMatch] = useState(null);
   const [previewCardMatch, setPreviewCardMatch] = useState(null);
+  const [ratingsCardMatch, setRatingsCardMatch] = useState(null);
+  const [convocatorias] = useCollection('convocatorias');
+  const [alineaciones] = useCollection('alineaciones');
   const played = matches.filter(m => m.status === 'played');
   const upcoming = matches.filter(m => m.status === 'upcoming');
-  const openEdit = (m, forceStatus = null) => { setEditing(m); setEditInitialStatus(forceStatus); };
+  const openEdit = (m, forceStatus = null) => {
+    setEditing(m);
+    setEditInitialStatus(forceStatus);
+    if (forceStatus === 'played') {
+      const conv = convocatorias.find(c => c.matchId === m.id || c.id === m.id);
+      const confirmed = conv
+        ? Object.entries(conv.attendance ?? {}).filter(([, v]) => v === 'yes').map(([id]) => id)
+        : [];
+      setEditDefaultParticipants(confirmed);
+    } else {
+      setEditDefaultParticipants([]);
+    }
+    const alin = alineaciones.find(a => a.id === m.id);
+    setEditLineup(alin?.lineup ?? {});
+  };
   const handleSave = (id, data) => {
     const prev = matches.find(m => m.id === id);
     const isNewResult = data.status === 'played' && data.result && !prev?.result;
@@ -1753,7 +1975,7 @@ function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
 
       {played.length > 0 && <>
         <div className="section-title" style={{ marginTop: 24 }}>Resultados</div>
-        {[...played].reverse().map(m => {
+        {[...played].sort((a, b) => new Date(b.date) - new Date(a.date)).map(m => {
           const parts = (m.result ?? '0-0').split('-').map(Number);
           const [a, b] = [isNaN(parts[0]) ? 0 : parts[0], isNaN(parts[1]) ? 0 : parts[1]];
           const win = a > b;
@@ -1774,6 +1996,7 @@ function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
                 </span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button className="btn btn-ghost btn-sm" onClick={() => setResultCardMatch(m)} title="Imagen del resultado" style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="photo" /></button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setRatingsCardMatch(m)} title="Notas del partido" style={{ padding: '4px 8px', opacity: 0.7 }}>★</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => openEdit(m)} style={{ padding: '4px 8px', opacity: 0.7 }}><Icon name="edit" /></button>
                 </div>
               </div>
@@ -1783,8 +2006,9 @@ function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
       </>}
 
       {showAdd && <MatchModal onClose={() => setShowAdd(false)} onAdd={addMatch} onSave={handleSave} players={players} />}
-      {editing && <MatchModal initial={editing} initialStatus={editInitialStatus} onClose={() => { setEditing(null); setEditInitialStatus(null); }} onAdd={addMatch} onSave={handleSave} players={players} />}
+      {editing && <MatchModal initial={editing} initialStatus={editInitialStatus} defaultParticipants={editDefaultParticipants} lineupForMatch={editLineup} onClose={() => { setEditing(null); setEditInitialStatus(null); setEditDefaultParticipants([]); setEditLineup({}); }} onAdd={addMatch} onSave={handleSave} players={players} />}
       {resultCardMatch && <MatchResultCardModal match={resultCardMatch} players={players} onClose={() => setResultCardMatch(null)} />}
+      {ratingsCardMatch && <MatchRatingsCardModal match={ratingsCardMatch} players={players} onClose={() => setRatingsCardMatch(null)} />}
       {previewCardMatch && <MatchPreviewCardModal match={previewCardMatch} onClose={() => setPreviewCardMatch(null)} />}
     </div>
   );
@@ -1802,8 +2026,7 @@ function StatsPage({ players, matches }) {
         </div>
       </div>
 
-      <div className="stats-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        <div>
+      <div>
           <div className="section-title">Tabla de Goleadores</div>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <table className="rank-table">
@@ -1812,7 +2035,6 @@ function StatsPage({ players, matches }) {
                   <th style={{ width: 40 }}>#</th>
                   <th>Jugador</th>
                   <th style={{ textAlign: 'right' }}>⚽</th>
-                  <th style={{ textAlign: 'right' }}>🎯</th>
                   <th style={{ textAlign: 'right' }}>PJ</th>
                 </tr>
               </thead>
@@ -1830,46 +2052,12 @@ function StatsPage({ players, matches }) {
                       </div>
                     </td>
                     <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#c9a84c' }}>{playerStats[p.id]?.goals ?? 0}</td>
-                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#a0c4b0' }}>{playerStats[p.id]?.assists ?? 0}</td>
                     <td style={{ textAlign: 'right', fontSize: 13, color: '#4a7a5a' }}>{playerStats[p.id]?.matches ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* ASISTIDORES */}
-        <div>
-          <div className="section-title">Tabla de Asistencias</div>
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table className="rank-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 40 }}>#</th>
-                  <th>Jugador</th>
-                  <th style={{ textAlign: 'right' }}>🎯</th>
-                  <th style={{ textAlign: 'right' }}>⚽</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...players].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((p, i) => (
-                  <tr key={p.id}>
-                    <td><div className="rank-pos" style={{ color: i === 0 ? '#c9a84c' : i < 3 ? '#a0c4b0' : '#3a6a4a' }}>{i + 1}</div></td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div className="player-avatar" style={{ width: 28, height: 28, fontSize: 10, marginBottom: 0, flexShrink: 0 }}>{initials(p.name)}</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f0eb' }}>{p.name}</div>
-                      </div>
-                    </td>
-                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#a0c4b0' }}>{playerStats[p.id]?.assists ?? 0}</td>
-                    <td style={{ textAlign: 'right', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#c9a84c' }}>{playerStats[p.id]?.goals ?? 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -1897,8 +2085,19 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
   const [lineup, setLineup] = useState({});
   const [captain, setCaptain] = useState(null);
   const [pickingSlot, setPickingSlot] = useState(null);
+  const [customFormation, setCustomFormation] = useState([]); // Sin portero, se agrega automático
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
 
   const upcoming = matches.find(m => m.status === 'upcoming');
+
+  // Convertir posiciones personalizadas a slots (siempre con 1 portero)
+  const positionLabels = { 'Portero': 'POR', 'Defensa': 'DEF', 'Mediocampista': 'MED', 'Delantero': 'DEL' };
+  const customFormationWithGK = ['Portero', ...customFormation];
+  const customFormationDef = customFormationWithGK.length > 0 ? customFormationWithGK.map((pos, i) => ({
+    count: 1,
+    label: positionLabels[pos] || pos.slice(0, 3).toUpperCase(),
+    y: 10 + (70 / (customFormationWithGK.length + 1)) * (i + 1)
+  })) : [];
 
   // FIX: incluir lesionados que confirmaron (antes solo filtraba 'active')
   const confirmed = players
@@ -1970,9 +2169,14 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
   };
 
   const changeFormation = (f) => {
-    setFormation(f);
-    setLineup({});
-    saveLineup(f, {}, captain);
+    if (f === 'Personalizada') {
+      setShowCustomPicker(true);
+    } else {
+      setFormation(f);
+      setLineup({});
+      setCustomFormation([]);
+      saveLineup(f, {}, captain);
+    }
   };
 
   const exportCard = async () => {
@@ -1999,8 +2203,9 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     } catch (e) { console.error(e); }
   };
 
-  const safeFormation = FORMATIONS_DEF[formation] ? formation : '3-3-2';
-  const slots = buildSlots(FORMATIONS_DEF[safeFormation]);
+  const safeFormation = formation === 'Personalizada' ? 'Personalizada' : (FORMATIONS_DEF[formation] ? formation : '3-3-2');
+  const formationDef = formation === 'Personalizada' ? customFormationDef : FORMATIONS_DEF[safeFormation];
+  const slots = buildSlots(formationDef || []);
   const assignedIds = Object.values(lineup ?? {});
 
   return (
@@ -2164,6 +2369,7 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
             {Object.keys(FORMATIONS_DEF).map(f => (
               <button key={f} className={`tab ${formation === f ? 'active' : ''}`} onClick={() => changeFormation(f)}>{f}</button>
             ))}
+            <button className={`tab ${formation === 'Personalizada' ? 'active' : ''}`} onClick={() => changeFormation('Personalizada')} style={{ color: '#c9a84c' }}>+ Personalizada</button>
           </div>
 
           <div className="lineup-wrap">
@@ -2236,6 +2442,123 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
           onClose={() => setPickingSlot(null)}
         />
       )}
+
+      {showCustomPicker && (
+        <div className="modal-overlay" onClick={() => setShowCustomPicker(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <span className="modal-title">Alineación Personalizada ({customFormation.length}/8)</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowCustomPicker(false)} style={{ padding: '6px 10px' }}><Icon name="x" /></button>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div className="section-title" style={{ marginBottom: 8 }}>1 Portero (fijo)</div>
+              <div style={{ padding: '10px 12px', marginBottom: 16, background: 'rgba(201, 168, 76, 0.08)', borderRadius: 8, fontSize: 13, color: '#c9a84c', fontWeight: 600 }}>
+                🥅 POR (1)
+              </div>
+
+              <div className="section-title" style={{ marginBottom: 12 }}>Selecciona 8 más</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+                {POSITIONS.filter(p => p !== 'Portero').map((pos, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      if (customFormation.length < 8) {
+                        setCustomFormation([...customFormation, pos]);
+                      }
+                    }}
+                    style={{
+                      padding: '12px',
+                      borderRadius: 8,
+                      border: '2px solid #2a4a3a',
+                      background: 'rgba(42, 74, 58, 0.3)',
+                      color: '#e8f0eb',
+                      fontWeight: 600,
+                      cursor: customFormation.length < 8 ? 'pointer' : 'not-allowed',
+                      opacity: customFormation.length < 8 ? 1 : 0.5,
+                      fontSize: 12,
+                      transition: 'all 0.2s'
+                    }}
+                    disabled={customFormation.length >= 8}
+                  >
+                    {pos.split(' ')[0]}+
+                  </button>
+                ))}
+              </div>
+
+              {customFormation.length > 0 && (
+                <div style={{ padding: 12, background: 'rgba(201, 168, 76, 0.08)', borderRadius: 8, borderLeft: '3px solid #c9a84c', marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: '#c9a84c', fontWeight: 600, marginBottom: 6 }}>Posiciones seleccionadas ({customFormation.length}/8):</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {customFormation.map((pos, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          const newFormation = customFormation.filter((p, idx) => idx !== i);
+                          setCustomFormation(newFormation);
+                        }}
+                        style={{
+                          background: '#c9a84c',
+                          color: '#0a1a12',
+                          padding: '4px 8px',
+                          borderRadius: 4,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = '#d4a76a';
+                          e.target.style.opacity = '0.8';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = '#c9a84c';
+                          e.target.style.opacity = '1';
+                        }}
+                      >
+                        {positionLabels[pos] || pos.slice(0, 3).toUpperCase()} <span style={{ fontWeight: 900 }}>✕</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  setShowCustomPicker(false);
+                  setCustomFormation([]);
+                }}
+                style={{ flex: 1 }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  if (customFormation.length === 8) {
+                    setFormation('Personalizada');
+                    setLineup({});
+                    saveLineup('Personalizada', {}, captain);
+                    setShowCustomPicker(false);
+                  }
+                }}
+                disabled={customFormation.length !== 8}
+                style={{ flex: 1, opacity: customFormation.length === 8 ? 1 : 0.5, cursor: customFormation.length === 8 ? 'pointer' : 'not-allowed' }}
+              >
+                Confirmar ({customFormation.length + 1}/9)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
     </div>
   );
@@ -2309,7 +2632,13 @@ function FeedPage({ posts, addPost, updatePost, deletePost }) {
         </div>
       )}
 
-      {posts.map(p => (
+      {[...posts]
+        .sort((a, b) => {
+          const ta = a.createdAt?.seconds ?? (a.date ? new Date(a.date).getTime() / 1000 : 0);
+          const tb = b.createdAt?.seconds ?? (b.date ? new Date(b.date).getTime() / 1000 : 0);
+          return tb - ta;
+        })
+        .map(p => (
         <div key={p.id} className="post-card">
           {editing?.id === p.id ? (
             <>
