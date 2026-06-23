@@ -25,26 +25,37 @@ const POSTS = [];
 
 const POSITIONS = ["Portero", "Defensa", "Mediocampista", "Delantero"];
 
-// Fútbol 9 — formaciones de 9 jugadores (1 POR + 8 de campo)
+// Fútbol 9 — formaciones de 9 jugadores (1 POR + 8 de campo) distribuidas en 6 líneas
 const FORMATIONS_DEF = {
-  '3-1-3-1': [{ count: 1, label: 'DEL', y: 10 }, { count: 3, label: 'MCO', y: 28 }, { count: 1, label: 'MDF', y: 48 }, { count: 3, label: 'DEF', y: 67 }, { count: 1, label: 'POR', y: 87 }],
-  '3-3-2':   [{ count: 2, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
-  '3-2-3':   [{ count: 3, label: 'DEL', y: 13 }, { count: 2, label: 'MED', y: 42 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
-  '1-3-3-1': [{ count: 1, label: 'DEL', y: 10 }, { count: 3, label: 'MCO', y: 30 }, { count: 3, label: 'MDF', y: 52 }, { count: 1, label: 'LIB', y: 70 }, { count: 1, label: 'POR', y: 87 }],
-  '2-3-3':   [{ count: 3, label: 'DEL', y: 13 }, { count: 3, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
-  '2-4-2':   [{ count: 2, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 2, label: 'DEF', y: 67 }, { count: 1, label: 'POR', y: 87 }],
-  '3-4-1':   [{ count: 1, label: 'DEL', y: 13 }, { count: 4, label: 'MED', y: 40 }, { count: 3, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
-  '4-3-1':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'MCO', y: 28 }, { count: 2, label: 'MDF', y: 45 }, { count: 4, label: 'DEF', y: 68 }, { count: 1, label: 'POR', y: 87 }],
-  '4-2-2':   [{ count: 2, label: 'DEL', y: 13 }, { count: 2, label: 'MED', y: 42 }, { count: 4, label: 'DEF', y: 65 }, { count: 1, label: 'POR', y: 87 }],
+  '3-1-3-1': [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'MCO', y: 26 }, { count: 2, label: 'MCO', y: 42 }, { count: 1, label: 'MDF', y: 58 }, { count: 3, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
+  '3-3-2':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'DEL', y: 26 }, { count: 2, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 3, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
+  '3-2-3':   [{ count: 1, label: 'DEL', y: 10 }, { count: 2, label: 'DEL', y: 26 }, { count: 1, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 3, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
+  '1-3-3-1': [{ count: 1, label: 'DEL', y: 10 }, { count: 2, label: 'MCO', y: 26 }, { count: 1, label: 'MCO', y: 42 }, { count: 3, label: 'MDF', y: 58 }, { count: 1, label: 'LIB', y: 74 }, { count: 1, label: 'POR', y: 87 }],
+  '2-3-3':   [{ count: 1, label: 'DEL', y: 10 }, { count: 2, label: 'DEL', y: 26 }, { count: 2, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 2, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
+  '2-4-2':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'DEL', y: 26 }, { count: 2, label: 'MED', y: 42 }, { count: 2, label: 'MED', y: 58 }, { count: 2, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
+  '3-4-1':   [{ count: 1, label: 'DEL', y: 10 }, { count: 2, label: 'MED', y: 26 }, { count: 2, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 2, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
+  '4-3-1':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'MCO', y: 26 }, { count: 1, label: 'MCO', y: 42 }, { count: 2, label: 'MDF', y: 58 }, { count: 3, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
+  '4-2-2':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'DEL', y: 26 }, { count: 1, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 4, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
 };
 
 function buildSlots(formLines) {
   if (!formLines) return [];
   const slots = [];
-  formLines.forEach((line, lineIdx) => {
-    for (let i = 0; i < line.count; i++) {
-      const x = line.count === 1 ? 50 : 10 + (80 / (line.count - 1)) * i;
-      slots.push({ id: `${lineIdx}-${i}`, label: line.label, x, y: line.y });
+  const MAX_PER_LINE = 5;
+  formLines.forEach((line, lineIdx, arr) => {
+    const isGoalkeeperLine = lineIdx === arr.length - 1;
+    const maxSlots = isGoalkeeperLine ? 1 : MAX_PER_LINE;
+    const count = Math.min(line.count, maxSlots);
+    for (let i = 0; i < maxSlots; i++) {
+      const x = maxSlots === 1 ? 50 : 10 + (80 / (maxSlots - 1)) * i;
+      const isActive = i < count;
+      slots.push({ 
+        id: `${lineIdx}-${i}`, 
+        label: line.label, 
+        x, 
+        y: line.y,
+        active: isActive
+      });
     }
   });
   return slots;
@@ -1307,9 +1318,10 @@ function SoccerFieldView({ slots, lineup, players, captain, onSlotClick }) {
         const pid = lineup[slot.id];
         const p = pid ? byId[pid] : null;
         const isCaptain = p && p.id === captain;
+        const isDisabled = !slot.active && !p;
         return (
-          <div key={slot.id} className="field-slot" style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
-            onClick={() => onSlotClick(slot)}>
+          <div key={slot.id} className="field-slot" style={{ left: `${slot.x}%`, top: `${slot.y}%`, opacity: isDisabled ? 0.4 : 1, cursor: isDisabled ? 'default' : 'pointer' }}
+            onClick={() => !isDisabled && onSlotClick(slot)}>
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <div className={`field-slot-chip ${p ? 'filled' : 'empty'}`}>{p ? initials(p.name) : '+'}</div>
               {isCaptain && (
