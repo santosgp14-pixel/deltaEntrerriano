@@ -672,9 +672,22 @@ const STYLES = `
     .match-row { padding: 12px 14px; border-radius: 12px; }
     .match-rival { font-size: 14px; }
 
-    /* Modal */
-    .modal { border-radius: 20px 20px 0 0; position: fixed; bottom: 0; left: 0; right: 0; max-width: 100%; max-height: 85vh; }
+    /* Modal — bottom sheet en mobile */
+    .modal {
+      border-radius: 20px 20px 0 0;
+      position: fixed;
+      bottom: calc(60px + env(safe-area-inset-bottom));
+      left: 0; right: 0;
+      max-width: 100%;
+      max-height: calc(85vh - 60px - env(safe-area-inset-bottom));
+      overflow-y: auto;
+      animation: slideUp 0.28s ease;
+    }
     .modal-overlay { align-items: flex-end; padding: 0; }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
 
     /* Convocatoria 2-col → 1-col */
     .convocatoria-two-col { grid-template-columns: 1fr !important; }
@@ -1349,7 +1362,7 @@ function PlayerPickerModal({ slot, confirmedPlayers, assignedIds, currentPlayerI
           </div>
         )}
         <div className="section-title" style={{ marginBottom: 8 }}>{currentPlayer ? 'Cambiar jugador' : 'Elegir jugador'}</div>
-        <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {available.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 20, color: '#4a7a5a', fontSize: 13 }}>
               Sin jugadores disponibles. Confirmá asistencias en "Convocados".
