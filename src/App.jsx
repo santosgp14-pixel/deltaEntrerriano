@@ -25,41 +25,27 @@ const POSTS = [];
 
 const POSITIONS = ["Portero", "Defensa", "Mediocampista", "Delantero"];
 
-// Fútbol 9 — formaciones de 9 jugadores (1 POR + 8 de campo) distribuidas en 6 líneas
-const FORMATIONS_DEF = {
-  '3-1-3-1': [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'MCO', y: 26 }, { count: 2, label: 'MCO', y: 42 }, { count: 1, label: 'MDF', y: 58 }, { count: 3, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
-  '3-3-2':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'DEL', y: 26 }, { count: 2, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 3, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
-  '3-2-3':   [{ count: 1, label: 'DEL', y: 10 }, { count: 2, label: 'DEL', y: 26 }, { count: 1, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 3, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
-  '1-3-3-1': [{ count: 1, label: 'DEL', y: 10 }, { count: 2, label: 'MCO', y: 26 }, { count: 1, label: 'MCO', y: 42 }, { count: 3, label: 'MDF', y: 58 }, { count: 1, label: 'LIB', y: 74 }, { count: 1, label: 'POR', y: 87 }],
-  '2-3-3':   [{ count: 1, label: 'DEL', y: 10 }, { count: 2, label: 'DEL', y: 26 }, { count: 2, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 2, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
-  '2-4-2':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'DEL', y: 26 }, { count: 2, label: 'MED', y: 42 }, { count: 2, label: 'MED', y: 58 }, { count: 2, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
-  '3-4-1':   [{ count: 1, label: 'DEL', y: 10 }, { count: 2, label: 'MED', y: 26 }, { count: 2, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 2, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
-  '4-3-1':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'MCO', y: 26 }, { count: 1, label: 'MCO', y: 42 }, { count: 2, label: 'MDF', y: 58 }, { count: 3, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
-  '4-2-2':   [{ count: 1, label: 'DEL', y: 10 }, { count: 1, label: 'DEL', y: 26 }, { count: 1, label: 'MED', y: 42 }, { count: 1, label: 'MED', y: 58 }, { count: 4, label: 'DEF', y: 74 }, { count: 1, label: 'POR', y: 87 }],
-};
+// ─── CAMPO FIJO: 1 POR + 5 FILAS × 5 SLOTS ─────────────────────────────────
+// Etiquetas por fila (de ataque a defensa)
+const ROW_LABELS = ['DEL', 'DEL', 'MED', 'DEF', 'DEF'];
 
-function buildSlots(formLines) {
-  if (!formLines) return [];
+function buildFixedSlots() {
   const slots = [];
-  const MAX_PER_LINE = 5;
-  formLines.forEach((line, lineIdx, arr) => {
-    const isGoalkeeperLine = lineIdx === arr.length - 1;
-    const maxSlots = isGoalkeeperLine ? 1 : MAX_PER_LINE;
-    const count = Math.min(line.count, maxSlots);
-    for (let i = 0; i < maxSlots; i++) {
-      const x = maxSlots === 1 ? 50 : 10 + (80 / (maxSlots - 1)) * i;
-      const isActive = i < count;
-      slots.push({ 
-        id: `${lineIdx}-${i}`, 
-        label: line.label, 
-        x, 
-        y: line.y,
-        active: isActive
-      });
+  // Arquero: único, centrado, abajo
+  slots.push({ id: 'gk-0', label: 'POR', x: 50, y: 87, active: true, isGK: true });
+  // 5 filas de 5 jugadores (de ataque arriba a defensa abajo)
+  const rowYs = [10, 24, 40, 56, 72];
+  rowYs.forEach((y, rowIdx) => {
+    const label = ROW_LABELS[rowIdx];
+    for (let col = 0; col < 5; col++) {
+      const x = 10 + (80 / 4) * col; // 10%, 30%, 50%, 70%, 90%
+      slots.push({ id: `r${rowIdx}-${col}`, label, x, y, active: true, isGK: false });
     }
   });
   return slots;
 }
+
+const FIXED_SLOTS = buildFixedSlots();
 
 // ─── TEXTOS AUTOMÁTICOS DE PARTIDO ─────────────────────────────────────────────
 const RESULT_TEXTS = {
@@ -1292,7 +1278,7 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
 
 // ─── FIELD & LINEUP COMPONENTS ───────────────────────────────────────────────
 
-function SoccerFieldView({ slots, lineup, players, captain, onSlotClick }) {
+function SoccerFieldView({ lineup, players, captain, onSlotClick }) {
   const byId = Object.fromEntries(players.map(p => [p.id, p]));
   return (
     <div className="field-container">
@@ -1314,14 +1300,13 @@ function SoccerFieldView({ slots, lineup, players, captain, onSlotClick }) {
         <circle cx={50} cy={137} r={0.9} fill="rgba(255,255,255,0.55)" />
         <rect x={40} y={151} width={20} height={2.5} fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.5" />
       </svg>
-      {slots.map(slot => {
+      {FIXED_SLOTS.map(slot => {
         const pid = lineup[slot.id];
         const p = pid ? byId[pid] : null;
         const isCaptain = p && p.id === captain;
-        const isDisabled = !slot.active && !p;
         return (
-          <div key={slot.id} className="field-slot" style={{ left: `${slot.x}%`, top: `${slot.y}%`, opacity: isDisabled ? 0.4 : 1, cursor: isDisabled ? 'default' : 'pointer' }}
-            onClick={() => !isDisabled && onSlotClick(slot)}>
+          <div key={slot.id} className="field-slot" style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
+            onClick={() => onSlotClick(slot)}>
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <div className={`field-slot-chip ${p ? 'filled' : 'empty'}`}>{p ? initials(p.name) : '+'}</div>
               {isCaptain && (
@@ -2093,23 +2078,11 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
   };
 
   // Lineup state
-  const [formation, setFormation] = useState('3-3-2');
   const [lineup, setLineup] = useState({});
   const [captain, setCaptain] = useState(null);
   const [pickingSlot, setPickingSlot] = useState(null);
-  const [customFormation, setCustomFormation] = useState([]); // Sin portero, se agrega automático
-  const [showCustomPicker, setShowCustomPicker] = useState(false);
 
   const upcoming = matches.find(m => m.status === 'upcoming');
-
-  // Convertir posiciones personalizadas a slots (siempre con 1 portero)
-  const positionLabels = { 'Portero': 'POR', 'Defensa': 'DEF', 'Mediocampista': 'MED', 'Delantero': 'DEL' };
-  const customFormationWithGK = ['Portero', ...customFormation];
-  const customFormationDef = customFormationWithGK.length > 0 ? customFormationWithGK.map((pos, i) => ({
-    count: 1,
-    label: positionLabels[pos] || pos.slice(0, 3).toUpperCase(),
-    y: 10 + (70 / (customFormationWithGK.length + 1)) * (i + 1)
-  })) : [];
 
   // FIX: incluir lesionados que confirmaron (antes solo filtraba 'active')
   const confirmed = players
@@ -2128,25 +2101,15 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
 
   // Cargar alineación guardada desde Firestore
   useEffect(() => {
-    if (!upcoming?.id) { setFormation('3-3-2'); setLineup({}); setCaptain(null); return; }
+    if (!upcoming?.id) { setLineup({}); setCaptain(null); return; }
     const ref = doc(db, 'alineaciones', upcoming.id);
     const unsub = onSnapshot(ref, snap => {
       if (snap.exists()) {
-        const saved = snap.data().formation;
-        if (saved === 'Personalizada') {
-          setFormation('Personalizada');
-          setCustomFormation(snap.data().customFormation ?? []);
-        } else {
-          setFormation(FORMATIONS_DEF[saved] ? saved : '3-3-2');
-          setCustomFormation([]);
-        }
         setLineup(snap.data().lineup ?? {});
         setCaptain(snap.data().captain ?? null);
       } else {
-        setFormation('3-3-2');
         setLineup({});
         setCaptain(null);
-        setCustomFormation([]);
       }
     });
     return unsub;
@@ -2160,15 +2123,15 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     if (status === 'yes') setToast('Confirmado ✓');
   };
 
-  const saveLineup = (newFormation, newLineup, newCaptain = captain, newCustomFormation = customFormation) => {
+  const saveLineup = (newLineup, newCaptain = captain) => {
     if (!upcoming?.id) return;
-    setDoc(doc(db, 'alineaciones', upcoming.id), { formation: newFormation, lineup: newLineup, captain: newCaptain, customFormation: newCustomFormation, matchId: upcoming.id, updatedAt: serverTimestamp() }, { merge: true });
+    setDoc(doc(db, 'alineaciones', upcoming.id), { lineup: newLineup, captain: newCaptain, matchId: upcoming.id, updatedAt: serverTimestamp() }, { merge: true });
   };
 
   const handleSetCaptain = (playerId) => {
     const next = captain === playerId ? null : playerId;
     setCaptain(next);
-    saveLineup(formation, lineup, next);
+    saveLineup(lineup, next);
   };
 
   const handleAssign = (slotId, playerId) => {
@@ -2176,7 +2139,7 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     next[slotId] = playerId;
     setLineup(next);
     setPickingSlot(null);
-    saveLineup(formation, next);
+    saveLineup(next);
   };
 
   const handleRemoveFromSlot = (slotId) => {
@@ -2184,18 +2147,13 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     delete next[slotId];
     setLineup(next);
     setPickingSlot(null);
-    saveLineup(formation, next);
+    saveLineup(next);
   };
 
-  const changeFormation = (f) => {
-    if (f === 'Personalizada') {
-      setShowCustomPicker(true);
-    } else {
-      setFormation(f);
-      setLineup({});
-      setCustomFormation([]);
-      saveLineup(f, {}, captain);
-    }
+  const handleResetLineup = () => {
+    setLineup({});
+    setCaptain(null);
+    saveLineup({}, null);
   };
 
   const exportCard = async () => {
@@ -2222,9 +2180,6 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     } catch (e) { console.error(e); }
   };
 
-  const safeFormation = formation === 'Personalizada' ? 'Personalizada' : (FORMATIONS_DEF[formation] ? formation : '3-3-2');
-  const formationDef = formation === 'Personalizada' ? customFormationDef : FORMATIONS_DEF[safeFormation];
-  const slots = buildSlots(formationDef || []);
   const assignedIds = Object.values(lineup ?? {});
 
   return (
@@ -2383,12 +2338,12 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
 
       {tab === 'alineacion' && (
         <div>
-          {/* Selector de formación */}
-          <div className="tabs" style={{ marginBottom: 20 }}>
-            {Object.keys(FORMATIONS_DEF).map(f => (
-              <button key={f} className={`tab ${formation === f ? 'active' : ''}`} onClick={() => changeFormation(f)}>{f}</button>
-            ))}
-            <button className={`tab ${formation === 'Personalizada' ? 'active' : ''}`} onClick={() => changeFormation('Personalizada')} style={{ color: '#c9a84c' }}>+ Personalizada</button>
+          {/* Botón limpiar alineación */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button className="btn btn-ghost btn-sm" onClick={handleResetLineup}
+              style={{ fontSize: 12, color: '#f87171', borderColor: 'rgba(248,113,113,0.2)' }}>
+              🗑 Limpiar alineación
+            </button>
           </div>
 
           <div className="lineup-wrap">
@@ -2403,9 +2358,8 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
                     vs {upcoming.rival.toUpperCase()} · {formatDate(upcoming.date)}
                   </div>
                 )}
-                <div style={{ fontSize: 11, color: '#3a6a4a', letterSpacing: '0.08em', fontWeight: 600, marginTop: 2 }}>{formation}</div>
               </div>
-              <SoccerFieldView slots={slots} lineup={lineup} players={players} captain={captain} onSlotClick={setPickingSlot} />
+              <SoccerFieldView lineup={lineup} players={players} captain={captain} onSlotClick={setPickingSlot} />
             </div>
 
             {/* Lista de confirmados */}
@@ -2460,122 +2414,6 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
           onRemove={handleRemoveFromSlot}
           onClose={() => setPickingSlot(null)}
         />
-      )}
-
-      {showCustomPicker && (
-        <div className="modal-overlay" onClick={() => setShowCustomPicker(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <span className="modal-title">Alineación Personalizada ({customFormation.length}/8)</span>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowCustomPicker(false)} style={{ padding: '6px 10px' }}><Icon name="x" /></button>
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <div className="section-title" style={{ marginBottom: 8 }}>1 Portero (fijo)</div>
-              <div style={{ padding: '10px 12px', marginBottom: 16, background: 'rgba(201, 168, 76, 0.08)', borderRadius: 8, fontSize: 13, color: '#c9a84c', fontWeight: 600 }}>
-                🥅 POR (1)
-              </div>
-
-              <div className="section-title" style={{ marginBottom: 12 }}>Selecciona 8 más</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
-                {POSITIONS.filter(p => p !== 'Portero').map((pos, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      if (customFormation.length < 8) {
-                        setCustomFormation([...customFormation, pos]);
-                      }
-                    }}
-                    style={{
-                      padding: '12px',
-                      borderRadius: 8,
-                      border: '2px solid #2a4a3a',
-                      background: 'rgba(42, 74, 58, 0.3)',
-                      color: '#e8f0eb',
-                      fontWeight: 600,
-                      cursor: customFormation.length < 8 ? 'pointer' : 'not-allowed',
-                      opacity: customFormation.length < 8 ? 1 : 0.5,
-                      fontSize: 12,
-                      transition: 'all 0.2s'
-                    }}
-                    disabled={customFormation.length >= 8}
-                  >
-                    {pos.split(' ')[0]}+
-                  </button>
-                ))}
-              </div>
-
-              {customFormation.length > 0 && (
-                <div style={{ padding: 12, background: 'rgba(201, 168, 76, 0.08)', borderRadius: 8, borderLeft: '3px solid #c9a84c', marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: '#c9a84c', fontWeight: 600, marginBottom: 6 }}>Posiciones seleccionadas ({customFormation.length}/8):</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {customFormation.map((pos, i) => (
-                      <button
-                        key={i}
-                        onClick={() => {
-                          const newFormation = customFormation.filter((p, idx) => idx !== i);
-                          setCustomFormation(newFormation);
-                        }}
-                        style={{
-                          background: '#c9a84c',
-                          color: '#0a1a12',
-                          padding: '4px 8px',
-                          borderRadius: 4,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.background = '#d4a76a';
-                          e.target.style.opacity = '0.8';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = '#c9a84c';
-                          e.target.style.opacity = '1';
-                        }}
-                      >
-                        {positionLabels[pos] || pos.slice(0, 3).toUpperCase()} <span style={{ fontWeight: 900 }}>✕</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  setShowCustomPicker(false);
-                  setCustomFormation([]);
-                }}
-                style={{ flex: 1 }}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  if (customFormation.length === 8) {
-                    setFormation('Personalizada');
-                    setLineup({});
-                    saveLineup('Personalizada', {}, captain, customFormation);
-                    setShowCustomPicker(false);
-                  }
-                }}
-                disabled={customFormation.length !== 8}
-                style={{ flex: 1, opacity: customFormation.length === 8 ? 1 : 0.5, cursor: customFormation.length === 8 ? 'pointer' : 'not-allowed' }}
-              >
-                Confirmar ({customFormation.length + 1}/9)
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
