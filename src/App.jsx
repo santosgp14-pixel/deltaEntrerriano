@@ -1316,6 +1316,9 @@ function SoccerFieldView({ lineup, players, captain, onSlotClick }) {
       {FIXED_SLOTS.map(slot => {
         const pid = lineup[slot.id];
         const p = pid ? byId[pid] : null;
+        const isFull = Object.keys(lineup).length >= 9;
+        // Si el campo está lleno y el slot está vacío, no renderizar
+        if (isFull && !p) return null;
         const isCaptain = p && p.id === captain;
         return (
           <div key={slot.id} className="field-slot" style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
