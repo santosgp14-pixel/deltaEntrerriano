@@ -2133,13 +2133,20 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     const unsub = onSnapshot(ref, snap => {
       if (snap.exists()) {
         const saved = snap.data().formation;
-        setFormation(FORMATIONS_DEF[saved] ? saved : '3-3-2');
+        if (saved === 'Personalizada') {
+          setFormation('Personalizada');
+          setCustomFormation(snap.data().customFormation ?? []);
+        } else {
+          setFormation(FORMATIONS_DEF[saved] ? saved : '3-3-2');
+          setCustomFormation([]);
+        }
         setLineup(snap.data().lineup ?? {});
         setCaptain(snap.data().captain ?? null);
       } else {
         setFormation('3-3-2');
         setLineup({});
         setCaptain(null);
+        setCustomFormation([]);
       }
     });
     return unsub;
@@ -2153,9 +2160,9 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     if (status === 'yes') setToast('Confirmado ✓');
   };
 
-  const saveLineup = (newFormation, newLineup, newCaptain = captain) => {
+  const saveLineup = (newFormation, newLineup, newCaptain = captain, newCustomFormation = customFormation) => {
     if (!upcoming?.id) return;
-    setDoc(doc(db, 'alineaciones', upcoming.id), { formation: newFormation, lineup: newLineup, captain: newCaptain, matchId: upcoming.id, updatedAt: serverTimestamp() }, { merge: true });
+    setDoc(doc(db, 'alineaciones', upcoming.id), { formation: newFormation, lineup: newLineup, captain: newCaptain, customFormation: newCustomFormation, matchId: upcoming.id, updatedAt: serverTimestamp() }, { merge: true });
   };
 
   const handleSetCaptain = (playerId) => {
@@ -2557,7 +2564,7 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
                   if (customFormation.length === 8) {
                     setFormation('Personalizada');
                     setLineup({});
-                    saveLineup('Personalizada', {}, captain);
+                    saveLineup('Personalizada', {}, captain, customFormation);
                     setShowCustomPicker(false);
                   }
                 }}
