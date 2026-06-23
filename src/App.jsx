@@ -2147,8 +2147,19 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     saveLineup(lineup, next);
   };
 
+  const MAX_LINEUP = 9;
+
   const handleAssign = (slotId, playerId) => {
+    // Si el slot ya tenía un jugador, es un reemplazo (no suma al total)
+    const isReplacing = !!lineup[slotId];
+    // Quitar al jugador de cualquier otro slot que lo tenga
     const next = Object.fromEntries(Object.entries(lineup).filter(([, v]) => v !== playerId));
+    // Verificar límite: si NO es reemplazo y ya hay 9 jugadores, bloquear
+    if (!isReplacing && Object.keys(next).length >= MAX_LINEUP) {
+      setToast(`Máximo ${MAX_LINEUP} jugadores en la alineación`);
+      setPickingSlot(null);
+      return;
+    }
     next[slotId] = playerId;
     setLineup(next);
     setPickingSlot(null);
