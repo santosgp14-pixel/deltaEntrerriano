@@ -3,7 +3,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { db, messaging } from './firebase';
 import { collection, addDoc, onSnapshot, serverTimestamp, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
-import domtoimage from 'dom-to-image-more';
+import html2canvas from 'html2canvas';
 
 // ─── LOGO ─────────────────────────────────────────────────────────────────────
 const LOGO_URL = import.meta.env.BASE_URL + 'logo.png';
@@ -1719,10 +1719,10 @@ function MatchPreviewCardModal({ match, onClose }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
+      const canvas = await html2canvas(el, { backgroundColor: null, scale: 3, useCORS: true, logging: false });
       const link = document.createElement('a');
       link.download = `previo-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
-      link.href = dataUrl;
+      link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (e) { console.error(e); }
   };
@@ -1928,10 +1928,10 @@ function MatchResultCardModal({ match, players, onClose }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
+      const canvas = await html2canvas(el, { backgroundColor: null, scale: 3, useCORS: true, logging: false });
       const link = document.createElement('a');
       link.download = `resultado-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
-      link.href = dataUrl;
+      link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (e) { console.error(e); }
   };
@@ -2123,10 +2123,10 @@ function MatchRatingsCardModal({ match, players, onClose }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
+      const canvas = await html2canvas(el, { backgroundColor: null, scale: 3, useCORS: true, logging: false });
       const link = document.createElement('a');
       link.download = `notas-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
-      link.href = dataUrl;
+      link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (e) { console.error(e); }
   };
@@ -2570,10 +2570,10 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
+      const canvas = await html2canvas(el, { backgroundColor: '#0d1f16', scale: 3, useCORS: true, logging: false });
       const link = document.createElement('a');
       link.download = `convocatoria-${upcoming ? upcoming.rival.replace(/\s+/g, '-').toLowerCase() : 'delta'}.png`;
-      link.href = dataUrl;
+      link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (e) { console.error(e); }
   };
@@ -2582,10 +2582,10 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     const el = fieldRef.current;
     if (!el) return;
     try {
-      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
+      const canvas = await html2canvas(el, { backgroundColor: '#0a1a12', scale: 3, useCORS: true, logging: false });
       const link = document.createElement('a');
       link.download = `alineacion-${upcoming ? upcoming.rival.replace(/\s+/g, '-').toLowerCase() : 'delta'}.png`;
-      link.href = dataUrl;
+      link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (e) { console.error(e); }
   };
