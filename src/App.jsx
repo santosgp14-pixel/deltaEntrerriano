@@ -1127,9 +1127,11 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
   const [form, setForm] = useState(() => {
     const savedParticipants = isEdit ? (initial.participants ?? []) : [];
     const participants = savedParticipants.length > 0 ? savedParticipants : defaultParticipants;
+    const matchType = isEdit ? (initial.matchType ?? 'Partido Normal') : 'Partido Normal';
+    const isCustomType = !['Partido Normal', 'Semifinal', 'Final'].includes(matchType);
     return isEdit
-      ? { rival: initial.rival, date: initial.date, time: initial.time ?? '16:00', venue: initial.venue ?? '', home: initial.home, status: initialStatus ?? initial.status, ...parseGoals(initial.result), scorers: initial.scorers ?? {}, assistants: initial.assistants ?? {}, participants, ratings: initial.ratings ?? {}, mvp: initial.mvp ?? null }
-      : { rival: '', date: '', time: '16:00', venue: '', home: true, status: initialStatus ?? 'upcoming', goalsUs: '', goalsRival: '', scorers: {}, assistants: {}, participants, ratings: {}, mvp: null };
+      ? { rival: initial.rival, date: initial.date, time: initial.time ?? '16:00', venue: initial.venue ?? '', home: initial.home, status: initialStatus ?? initial.status, ...parseGoals(initial.result), scorers: initial.scorers ?? {}, assistants: initial.assistants ?? {}, participants, ratings: initial.ratings ?? {}, mvp: initial.mvp ?? null, matchType, isCustomType, customType: isCustomType ? matchType : '' }
+      : { rival: '', date: '', time: '16:00', venue: '', home: true, status: initialStatus ?? 'upcoming', goalsUs: '', goalsRival: '', scorers: {}, assistants: {}, participants, ratings: {}, mvp: null, matchType: 'Partido Normal', isCustomType: false, customType: '' };
   });
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const handleAutoRate = () => {
@@ -1149,7 +1151,7 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
     const isPlayed = form.status === 'played';
     if (isPlayed && (form.goalsUs === '' || form.goalsRival === '')) return;
     const result = isPlayed ? `${form.goalsUs}-${form.goalsRival}` : null;
-    const data = { rival: form.rival, date: form.date, time: form.time, venue: form.venue, home: form.home, result, status: form.status, scorers: isPlayed ? form.scorers : {}, assistants: isPlayed ? form.assistants : {}, participants: isPlayed ? form.participants : [], ratings: isPlayed ? form.ratings : {}, mvp: isPlayed ? form.mvp : null };
+    const data = { rival: form.rival, date: form.date, time: form.time, venue: form.venue, home: form.home, result, status: form.status, scorers: isPlayed ? form.scorers : {}, assistants: isPlayed ? form.assistants : {}, participants: isPlayed ? form.participants : [], ratings: isPlayed ? form.ratings : {}, mvp: isPlayed ? form.mvp : null, matchType: form.matchType || 'Partido Normal' };
     if (isEdit) { onSave(initial.id, data); } else { onAdd({ ...data, id: Date.now() }); }
     onClose();
   };
@@ -1180,6 +1182,34 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
         <div className="form-group">
           <label className="form-label">Cancha</label>
           <input className="form-input" placeholder="Nombre del estadio o cancha" value={form.venue} onChange={e => upd('venue', e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Tipo de Partido</label>
+          <select className="form-select" value={form.isCustomType ? 'Otro' : form.matchType} onChange={e => {
+            const val = e.target.value;
+            if (val === 'Otro') {
+              setForm(f => ({ ...f, isCustomType: true, matchType: f.customType || '' }));
+            } else {
+              setForm(f => ({ ...f, isCustomType: false, matchType: val }));
+            }
+          }}>
+            <option value="Partido Normal">Partido Normal</option>
+            <option value="Semifinal">Semifinal</option>
+            <option value="Final">Final</option>
+            <option value="Otro">Otro (Especificar...)</option>
+          </select>
+          {form.isCustomType && (
+            <input
+              className="form-input"
+              style={{ marginTop: 10 }}
+              placeholder="Ej: Cuartos de Final, Amistoso..."
+              value={form.customType}
+              onChange={e => {
+                const val = e.target.value;
+                setForm(f => ({ ...f, customType: val, matchType: val }));
+              }}
+            />
+          )}
         </div>
         <div className="form-group">
           <label className="form-label">Localía</label>
@@ -1578,23 +1608,128 @@ function PlayersPage({ players, addPlayer, updatePlayer, deletePlayer, matches }
       {showEdit && <EditPlayerModal player={showEdit} onClose={() => setShowEdit(null)} onSave={updatePlayer} />}
     </div>
   );
-}
+}const CARD_THEMES = {
+  clasico: {
+    background: 'linear-gradient(160deg, #0f2a1c 0%, #071510 55%, #0d1f10 100%)',
+    border: '1.5px solid rgba(201,168,76,0.35)',
+    glow: 'radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 65%)',
+    accentColor: '#c9a84c',
+    textColor: '#e8f0eb',
+    mutedColor: '#7aaa8a',
+    subText: '#4a7a5a',
+    resultBg: {
+      draw: 'rgba(234,179,8,0.15)',
+      win: 'rgba(34,197,94,0.15)',
+      loss: 'rgba(239,68,68,0.15)'
+    },
+    resultColor: {
+      draw: '#facc15',
+      win: '#4ade80',
+      loss: '#f87171'
+    }
+  },
+  final: {
+    background: 'linear-gradient(165deg, #1f1b0a 0%, #0f0c05 50%, #171207 100%)',
+    border: '2px solid #d9b85c',
+    glow: 'radial-gradient(ellipse at 50% 0%, rgba(217,184,92,0.22) 0%, transparent 65%)',
+    accentColor: '#d9b85c',
+    textColor: '#e8f0eb',
+    mutedColor: '#c2ab72',
+    subText: '#7d693c',
+    resultBg: {
+      draw: 'rgba(217,184,92,0.2)',
+      win: 'rgba(217,184,92,0.25)',
+      loss: 'rgba(239,68,68,0.15)'
+    },
+    resultColor: {
+      draw: '#d9b85c',
+      win: '#e8c060',
+      loss: '#f87171'
+    }
+  },
+  neon: {
+    background: 'linear-gradient(160deg, #080f0c 0%, #030806 60%, #060e0a 100%)',
+    border: '1.5px solid #22c55e',
+    glow: 'radial-gradient(ellipse at 50% 0%, rgba(34,197,94,0.18) 0%, transparent 65%)',
+    accentColor: '#22c55e',
+    textColor: '#e8f0eb',
+    mutedColor: '#86efac',
+    subText: '#166534',
+    resultBg: {
+      draw: 'rgba(234,179,8,0.15)',
+      win: 'rgba(34,197,94,0.2)',
+      loss: 'rgba(239,68,68,0.15)'
+    },
+    resultColor: {
+      draw: '#facc15',
+      win: '#22c55e',
+      loss: '#f87171'
+    }
+  },
+  cristal: {
+    background: 'linear-gradient(160deg, rgba(20,35,25,0.9) 0%, rgba(10,20,15,0.95) 100%)',
+    border: '1.5px solid rgba(255,255,255,0.15)',
+    glow: 'radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.06) 0%, transparent 65%)',
+    accentColor: '#a0c4b0',
+    textColor: '#e8f0eb',
+    mutedColor: '#7aaa8a',
+    subText: '#4a7a5a',
+    resultBg: {
+      draw: 'rgba(255,255,255,0.08)',
+      win: 'rgba(255,255,255,0.12)',
+      loss: 'rgba(239,68,68,0.15)'
+    },
+    resultColor: {
+      draw: '#a0c4b0',
+      win: '#e8f0eb',
+      loss: '#f87171'
+    }
+  }
+};
 
 // ─── MATCH PREVIEW CARD ──────────────────────────────────────────────────────
 function MatchPreviewCardModal({ match, onClose }) {
   const cardRef = useRef(null);
+  const [theme, setTheme] = useState(match.matchType === 'Final' ? 'final' : 'clasico');
+  const [showMatchType, setShowMatchType] = useState(true);
+
+  const themeDetails = CARD_THEMES[theme] || CARD_THEMES.clasico;
 
   const exportCard = async () => {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const canvas = await html2canvas(el, { backgroundColor: '#071510', scale: 2, useCORS: true });
+      const canvas = await html2canvas(el, { backgroundColor: null, scale: 2, useCORS: true });
       const link = document.createElement('a');
       link.download = `previo-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (e) { console.error(e); }
   };
+
+  const shieldBgDelta = theme === 'final'
+    ? 'linear-gradient(135deg, #1f1b0a, #362e14)'
+    : theme === 'neon'
+    ? 'linear-gradient(135deg, #05140b, #0e2b17)'
+    : theme === 'cristal'
+    ? 'rgba(255,255,255,0.07)'
+    : 'linear-gradient(135deg,#1a3a2a,#2a5a3a)';
+
+  const shieldBgRival = theme === 'final'
+    ? 'linear-gradient(135deg, #1f1b0a, #362e14)'
+    : theme === 'neon'
+    ? 'linear-gradient(135deg, #05140b, #0e2b17)'
+    : theme === 'cristal'
+    ? 'rgba(255,255,255,0.07)'
+    : 'rgba(255,255,255,0.05)';
+
+  const labelBg = theme === 'final'
+    ? 'rgba(217, 184, 92, 0.15)'
+    : theme === 'neon'
+    ? 'rgba(34, 197, 94, 0.15)'
+    : theme === 'cristal'
+    ? 'rgba(255, 255, 255, 0.1)'
+    : 'rgba(201,168,76,0.12)';
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -1606,39 +1741,59 @@ function MatchPreviewCardModal({ match, onClose }) {
 
         <div ref={cardRef} style={{
           width: '100%', maxWidth: 420, margin: '0 auto',
-          background: 'linear-gradient(160deg, #0f2a1c 0%, #071510 55%, #0d1f10 100%)',
+          background: themeDetails.background,
           borderRadius: 20,
           padding: '36px 28px 28px',
-          border: '1.5px solid rgba(201,168,76,0.35)',
+          border: themeDetails.border,
           position: 'relative',
           overflow: 'hidden',
         }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 65%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: themeDetails.glow, pointerEvents: 'none' }} />
 
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: 24, position: 'relative' }}>
             <Shield size={76} style={{ margin: '0 auto 10px' }} />
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.28em', color: '#c9a84c', textTransform: 'uppercase' }}>Delta Entrerriano</div>
-            <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.6), transparent)', marginTop: 14 }} />
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.28em', color: themeDetails.accentColor, textTransform: 'uppercase' }}>Delta Entrerriano</div>
+            <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${themeDetails.accentColor}99, transparent)`, marginTop: 14 }} />
           </div>
 
           {/* Label */}
           <div style={{ textAlign: 'center', marginBottom: 20 }}>
-            <span style={{ display: 'inline-block', background: 'rgba(201,168,76,0.12)', color: '#c9a84c', border: '1.5px solid rgba(201,168,76,0.35)', borderRadius: 999, padding: '5px 28px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase' }}>Próximo Partido</span>
+            <span style={{ display: 'inline-block', background: labelBg, color: themeDetails.accentColor, border: `1.5px solid ${themeDetails.accentColor}55`, borderRadius: 999, padding: '5px 28px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase' }}>Próximo Partido</span>
+            
+            {showMatchType && match.matchType && (
+              <div style={{ marginTop: 10 }}>
+                <span style={{
+                  display: 'inline-block',
+                  background: theme === 'final' ? 'rgba(217, 184, 92, 0.2)' : 'rgba(255,255,255,0.06)',
+                  color: themeDetails.accentColor,
+                  border: `1px solid ${themeDetails.accentColor}44`,
+                  borderRadius: 999,
+                  padding: '3px 18px',
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase'
+                }}>
+                  {theme === 'final' ? '🏆 ' : ''}{match.matchType.toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* VS */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginBottom: 24 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#7aaa8a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Delta</div>
-              <div style={{ width: 64, height: 64, margin: '0 auto', borderRadius: '50%', background: 'linear-gradient(135deg,#1a3a2a,#2a5a3a)', border: '2px solid rgba(201,168,76,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: themeDetails.mutedColor, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Delta</div>
+              <div style={{ width: 64, height: 64, margin: '0 auto', borderRadius: '50%', background: shieldBgDelta, border: `2px solid ${themeDetails.accentColor}55`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Shield size={40} />
               </div>
             </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: '#c9a84c', lineHeight: 1 }}>VS</div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: themeDetails.accentColor, lineHeight: 1 }}>VS</div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#7aaa8a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.rival}</div>
-              <div style={{ width: 64, height: 64, margin: '0 auto', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '2px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: '#4a7a5a' }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: themeDetails.mutedColor, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.rival}</div>
+              <div style={{ width: 64, height: 64, margin: '0 auto', borderRadius: '50%', background: shieldBgRival, border: `2px solid ${theme === 'final' || theme === 'neon' ? themeDetails.accentColor + '55' : 'rgba(255,255,255,0.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: themeDetails.accentColor }}>
                 {(match.rival || '?').slice(0, 2).toUpperCase()}
               </div>
             </div>
@@ -1649,25 +1804,76 @@ function MatchPreviewCardModal({ match, onClose }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 16 }}>📅</span>
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#e8f0eb', letterSpacing: '0.03em' }}>{formatDate(match.date)} — {match.time}</span>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: themeDetails.textColor, letterSpacing: '0.03em' }}>{formatDate(match.date)} — {match.time}</span>
             </div>
             {match.venue && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 16 }}>📍</span>
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#e8f0eb', letterSpacing: '0.03em' }}>{match.venue}</span>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: themeDetails.textColor, letterSpacing: '0.03em' }}>{match.venue}</span>
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 16 }}>{match.home ? '🏠' : '✈️'}</span>
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: '#e8f0eb', letterSpacing: '0.03em' }}>{match.home ? 'Local' : 'Visitante'}</span>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: themeDetails.textColor, letterSpacing: '0.03em' }}>{match.home ? 'Local' : 'Visitante'}</span>
             </div>
           </div>
 
-          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)', marginTop: 20, marginBottom: 12 }} />
-          <div style={{ textAlign: 'center', fontSize: 11, color: '#3a6a4a', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>🌿 Temporada {new Date().getFullYear()}</div>
+          <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${themeDetails.accentColor}55, transparent)`, marginTop: 20, marginBottom: 12 }} />
+          <div style={{ textAlign: 'center', fontSize: 11, color: themeDetails.subText, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>🌿 Temporada {new Date().getFullYear()}</div>
         </div>
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a7a5a', marginBottom: 8, textAlign: 'center' }}>
+            Diseño de la Tarjeta
+          </div>
+          <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: 4, marginBottom: 14 }}>
+            {[
+              { id: 'clasico', label: 'Clásico' },
+              { id: 'final', label: 'Dorado 🏆' },
+              { id: 'neon', label: 'Cyber Neón' },
+              { id: 'cristal', label: 'Cristal' }
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTheme(t.id)}
+                style={{
+                  flex: 1,
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: theme === t.id ? '#0d1f16' : 'transparent',
+                  color: theme === t.id ? '#e8f0eb' : '#4a7a5a',
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.2s'
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#a0c4b0', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={showMatchType}
+                onChange={e => setShowMatchType(e.target.checked)}
+                style={{
+                  accentColor: themeDetails.accentColor,
+                  width: 15,
+                  height: 15,
+                  cursor: 'pointer'
+                }}
+              />
+              Mostrar tipo de partido en la imagen
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cerrar</button>
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={exportCard}><Icon name="download" /> Descargar imagen</button>
         </div>
@@ -1675,16 +1881,22 @@ function MatchPreviewCardModal({ match, onClose }) {
     </div>
   );
 }
-
 // ─── MATCH RESULT CARD ───────────────────────────────────────────────────────
 function MatchResultCardModal({ match, players, onClose }) {
   const cardRef = useRef(null);
+  const [theme, setTheme] = useState(match.matchType === 'Final' ? 'final' : 'clasico');
+  const [showMatchType, setShowMatchType] = useState(true);
+
+  const themeDetails = CARD_THEMES[theme] || CARD_THEMES.clasico;
+
   const [a, b] = (match.result ?? '0-0').split('-').map(Number);
   const win = a > b;
   const draw = a === b;
+  const resKey = draw ? 'draw' : win ? 'win' : 'loss';
   const resultLabel = draw ? 'EMPATE' : win ? 'VICTORIA' : 'DERROTA';
-  const resultColor = draw ? '#facc15' : win ? '#4ade80' : '#f87171';
-  const resultBg    = draw ? 'rgba(234,179,8,0.15)' : win ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)';
+  
+  const resultColor = themeDetails.resultColor[resKey];
+  const resultBg    = themeDetails.resultBg[resKey];
 
   const byId = Object.fromEntries(players.map(p => [p.id, p]));
   const scorersList = Object.entries(match.scorers ?? {})
@@ -1696,13 +1908,15 @@ function MatchResultCardModal({ match, players, onClose }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const canvas = await html2canvas(el, { backgroundColor: '#071510', scale: 2, useCORS: true });
+      const canvas = await html2canvas(el, { backgroundColor: null, scale: 2, useCORS: true });
       const link = document.createElement('a');
       link.download = `resultado-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (e) { console.error(e); }
   };
+
+  const cardBorder = theme === 'final' ? `2px solid ${resultColor}` : `1.5px solid ${resultColor}66`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -1715,45 +1929,65 @@ function MatchResultCardModal({ match, players, onClose }) {
         {/* Tarjeta exportable */}
         <div ref={cardRef} style={{
           width: '100%', maxWidth: 420, margin: '0 auto',
-          background: 'linear-gradient(160deg, #0f2a1c 0%, #071510 55%, #0d1f10 100%)',
+          background: themeDetails.background,
           borderRadius: 20,
           padding: '32px 28px 24px',
-          border: `1.5px solid ${resultColor}55`,
+          border: cardBorder,
           position: 'relative',
           overflow: 'hidden',
           display: 'block',
         }}>
           {/* Brillo de fondo */}
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: `radial-gradient(ellipse at 50% 0%, ${resultColor}10 0%, transparent 65%)`, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: `radial-gradient(ellipse at 50% 0%, ${resultColor}15 0%, transparent 65%)`, pointerEvents: 'none' }} />
 
           {/* Encabezado */}
           <div style={{ textAlign: 'center', marginBottom: 18, position: 'relative' }}>
             <Shield size={72} style={{ margin: '0 auto 10px' }} />
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.28em', color: '#c9a84c', textTransform: 'uppercase' }}>Delta Entrerriano</div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.28em', color: themeDetails.accentColor, textTransform: 'uppercase' }}>Delta Entrerriano</div>
             <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${resultColor}88, transparent)`, marginTop: 14 }} />
           </div>
 
           {/* Info del partido */}
-          <div style={{ textAlign: 'center', fontSize: 11, color: '#4a7a5a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>
+          <div style={{ textAlign: 'center', fontSize: 11, color: themeDetails.mutedColor, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>
             {match.home ? '🏠 Local' : '✈️ Visitante'} · {formatDate(match.date)}
           </div>
 
           {/* Marcador */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, marginBottom: 18 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#7aaa8a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Delta</div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 88, fontWeight: 900, color: '#e8f0eb', lineHeight: 1 }}>{a}</div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: themeDetails.mutedColor, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Delta</div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 88, fontWeight: 900, color: themeDetails.textColor, lineHeight: 1 }}>{a}</div>
             </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 36, fontWeight: 700, color: '#2a5a3a', paddingBottom: 10, userSelect: 'none' }}>—</div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 36, fontWeight: 700, color: themeDetails.subText, paddingBottom: 10, userSelect: 'none' }}>—</div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#7aaa8a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.rival}</div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 88, fontWeight: 900, color: '#e8f0eb', lineHeight: 1 }}>{b}</div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: themeDetails.mutedColor, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.rival}</div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 88, fontWeight: 900, color: themeDetails.textColor, lineHeight: 1 }}>{b}</div>
             </div>
           </div>
 
           {/* Badge resultado */}
           <div style={{ textAlign: 'center', marginBottom: 20 }}>
             <span style={{ display: 'inline-block', background: resultBg, color: resultColor, border: `1.5px solid ${resultColor}66`, borderRadius: 999, padding: '6px 32px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 900, letterSpacing: '0.1em' }}>{resultLabel}</span>
+            
+            {showMatchType && match.matchType && (
+              <div style={{ marginTop: 10 }}>
+                <span style={{
+                  display: 'inline-block',
+                  background: theme === 'final' ? 'rgba(217, 184, 92, 0.2)' : 'rgba(255,255,255,0.06)',
+                  color: themeDetails.accentColor,
+                  border: `1px solid ${themeDetails.accentColor}44`,
+                  borderRadius: 999,
+                  padding: '3px 18px',
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase'
+                }}>
+                  {theme === 'final' ? '🏆 ' : ''}{match.matchType.toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Goleadores */}
@@ -1764,8 +1998,8 @@ function MatchResultCardModal({ match, players, onClose }) {
                 {scorersList.map((s, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 2px', borderBottom: i < scorersList.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                     <span style={{ fontSize: 13 }}>⚽</span>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: '#e8f0eb', flex: 1 }}>{s.name}</span>
-                    {s.count > 1 && <span style={{ fontSize: 12, fontWeight: 700, color: '#c9a84c', background: 'rgba(201,168,76,0.12)', borderRadius: 20, padding: '1px 10px' }}>×{s.count}</span>}
+                    <span style={{ fontSize: 14, fontWeight: 600, color: themeDetails.textColor, flex: 1 }}>{s.name}</span>
+                    {s.count > 1 && <span style={{ fontSize: 12, fontWeight: 700, color: themeDetails.accentColor, background: `${themeDetails.accentColor}18`, borderRadius: 20, padding: '1px 10px' }}>×{s.count}</span>}
                   </div>
                 ))}
               </div>
@@ -1773,11 +2007,63 @@ function MatchResultCardModal({ match, players, onClose }) {
           )}
 
           {/* Pie */}
-          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)', marginTop: 20, marginBottom: 12 }} />
-          <div style={{ textAlign: 'center', fontSize: 11, color: '#3a6a4a', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>🌿 Temporada {new Date().getFullYear()}</div>
+          <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${resultColor}55, transparent)`, marginTop: 20, marginBottom: 12 }} />
+          <div style={{ textAlign: 'center', fontSize: 11, color: themeDetails.subText, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>🌿 Temporada {new Date().getFullYear()}</div>
         </div>
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+        {/* Controles de Diseño */}
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a7a5a', marginBottom: 8, textAlign: 'center' }}>
+            Diseño de la Tarjeta
+          </div>
+          <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: 4, marginBottom: 14 }}>
+            {[
+              { id: 'clasico', label: 'Clásico' },
+              { id: 'final', label: 'Dorado 🏆' },
+              { id: 'neon', label: 'Cyber Neón' },
+              { id: 'cristal', label: 'Cristal' }
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTheme(t.id)}
+                style={{
+                  flex: 1,
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: theme === t.id ? '#0d1f16' : 'transparent',
+                  color: theme === t.id ? '#e8f0eb' : '#4a7a5a',
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.2s'
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#a0c4b0', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={showMatchType}
+                onChange={e => setShowMatchType(e.target.checked)}
+                style={{
+                  accentColor: themeDetails.accentColor,
+                  width: 15,
+                  height: 15,
+                  cursor: 'pointer'
+                }}
+              />
+              Mostrar tipo de partido en la imagen
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cerrar</button>
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={exportCard}><Icon name="download" /> Descargar imagen</button>
         </div>
@@ -1789,10 +2075,16 @@ function MatchResultCardModal({ match, players, onClose }) {
 // ─── MATCH RATINGS CARD ──────────────────────────────────────────────────────
 function MatchRatingsCardModal({ match, players, onClose }) {
   const cardRef = useRef(null);
+  const [theme, setTheme] = useState(match.matchType === 'Final' ? 'final' : 'clasico');
+  const [showMatchType, setShowMatchType] = useState(true);
+
+  const themeDetails = CARD_THEMES[theme] || CARD_THEMES.clasico;
+
   const byId = Object.fromEntries(players.map(p => [p.id, p]));
   const [a, b] = (match.result ?? '0-0').split('-').map(Number);
   const win = a > b; const draw = a === b;
-  const resultColor = draw ? '#facc15' : win ? '#4ade80' : '#f87171';
+  const resKey = draw ? 'draw' : win ? 'win' : 'loss';
+  const resultColor = themeDetails.resultColor[resKey];
 
   const participantPlayers = (match.participants ?? [])
     .map(id => byId[id])
@@ -1801,8 +2093,8 @@ function MatchRatingsCardModal({ match, players, onClose }) {
 
   const ratingColor = (r) => {
     if (!r) return '#3a6a4a';
-    if (r >= 9) return '#c9a84c';
-    if (r >= 7) return '#4ade80';
+    if (r >= 9) return themeDetails.accentColor;
+    if (r >= 7) return theme === 'neon' ? '#22c55e' : '#4ade80';
     if (r >= 5) return '#facc15';
     return '#f87171';
   };
@@ -1811,13 +2103,15 @@ function MatchRatingsCardModal({ match, players, onClose }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const canvas = await html2canvas(el, { backgroundColor: '#071510', scale: 2, useCORS: true });
+      const canvas = await html2canvas(el, { backgroundColor: null, scale: 2, useCORS: true });
       const link = document.createElement('a');
       link.download = `notas-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (e) { console.error(e); }
   };
+
+  const cardBorder = theme === 'final' ? `2px solid ${resultColor}` : `1.5px solid ${resultColor}55`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -1829,48 +2123,68 @@ function MatchRatingsCardModal({ match, players, onClose }) {
 
         <div ref={cardRef} style={{
           width: '100%', maxWidth: 420, margin: '0 auto',
-          background: 'linear-gradient(160deg, #0f2a1c 0%, #071510 55%, #0d1f10 100%)',
+          background: themeDetails.background,
           borderRadius: 20,
           padding: '28px 24px 20px',
-          border: `1.5px solid ${resultColor}55`,
+          border: cardBorder,
           position: 'relative',
           overflow: 'hidden',
         }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: `radial-gradient(ellipse at 50% 0%, ${resultColor}10 0%, transparent 60%)`, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: `radial-gradient(ellipse at 50% 0%, ${resultColor}15 0%, transparent 60%)`, pointerEvents: 'none' }} />
 
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: 16, position: 'relative' }}>
             <Shield size={56} style={{ margin: '0 auto 8px' }} />
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.28em', color: '#c9a84c', textTransform: 'uppercase' }}>Delta Entrerriano</div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.28em', color: themeDetails.accentColor, textTransform: 'uppercase' }}>Delta Entrerriano</div>
           </div>
 
           {/* Resultado */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: '#e8f0eb', lineHeight: 1 }}>{a}</span>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, color: '#3a6a4a', fontWeight: 700 }}>vs</span>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: '#e8f0eb', lineHeight: 1 }}>{b}</span>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: themeDetails.textColor, lineHeight: 1 }}>{a}</span>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, color: themeDetails.subText, fontWeight: 700 }}>vs</span>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: themeDetails.textColor, lineHeight: 1 }}>{b}</span>
           </div>
           <div style={{ textAlign: 'center', marginBottom: 4 }}>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#4a7a5a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>vs {match.rival}</span>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: themeDetails.mutedColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>vs {match.rival}</span>
           </div>
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <span style={{ display: 'inline-block', background: `${resultColor}18`, color: resultColor, border: `1px solid ${resultColor}44`, borderRadius: 999, padding: '3px 18px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: '0.1em' }}>
+            <span style={{ display: 'inline-block', background: `${resultColor}18`, color: resultColor, border: `1px solid ${resultColor}44`, borderRadius: 999, padding: '3px 18px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: '0.1' }}>
               {draw ? 'EMPATE' : win ? 'VICTORIA' : 'DERROTA'}
             </span>
+            
+            {showMatchType && match.matchType && (
+              <div style={{ marginTop: 8 }}>
+                <span style={{
+                  display: 'inline-block',
+                  background: theme === 'final' ? 'rgba(217, 184, 92, 0.2)' : 'rgba(255,255,255,0.06)',
+                  color: themeDetails.accentColor,
+                  border: `1px solid ${themeDetails.accentColor}44`,
+                  borderRadius: 999,
+                  padding: '2px 14px',
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase'
+                }}>
+                  {theme === 'final' ? '🏆 ' : ''}{match.matchType.toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
 
           <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', marginBottom: 14 }} />
 
           {/* MVP */}
           {match.mvp && byId[match.mvp] && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
-              <span style={{ fontSize: 20 }}>★</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: theme === 'final' ? 'rgba(217, 184, 92, 0.15)' : 'rgba(201,168,76,0.1)', border: `1px solid ${themeDetails.accentColor}55`, borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
+              <span style={{ fontSize: 20, color: themeDetails.accentColor }}>★</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: '#c9a84c', textTransform: 'uppercase', marginBottom: 2 }}>MVP del Partido</div>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, fontWeight: 800, color: '#e8f0eb', textTransform: 'uppercase' }}>{byId[match.mvp].name}</div>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: themeDetails.accentColor, textTransform: 'uppercase', marginBottom: 2 }}>MVP del Partido</div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, fontWeight: 800, color: themeDetails.textColor, textTransform: 'uppercase' }}>{byId[match.mvp].name}</div>
               </div>
               {match.ratings?.[match.mvp] && (
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 32, fontWeight: 900, color: '#c9a84c', lineHeight: 1 }}>{match.ratings[match.mvp]}</div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 32, fontWeight: 900, color: themeDetails.accentColor, lineHeight: 1 }}>{match.ratings[match.mvp]}</div>
               )}
             </div>
           )}
@@ -1884,17 +2198,17 @@ function MatchRatingsCardModal({ match, players, onClose }) {
                 const col = ratingColor(rating);
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#c9a84c', minWidth: 24, textAlign: 'right' }}>#{p.number}</span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: isMvp ? '#e8f0eb' : '#a0c4b0', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}{isMvp ? ' ★' : ''}</span>
+                    <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: themeDetails.accentColor, minWidth: 24, textAlign: 'right' }}>#{p.number}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: isMvp ? themeDetails.textColor : themeDetails.mutedColor, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}{isMvp ? ' ★' : ''}</span>
                     {rating ? (
                       <>
-                        <div style={{ width: 60, height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
+                        <div style={{ width: 60, height: 4, borderRadius: 4, background: theme === 'final' ? 'rgba(217, 184, 92, 0.08)' : 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
                           <div style={{ width: `${rating * 10}%`, height: '100%', background: col, borderRadius: 4 }} />
                         </div>
                         <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 800, color: col, minWidth: 20, textAlign: 'right', lineHeight: 1 }}>{rating}</span>
                       </>
                     ) : (
-                      <span style={{ fontSize: 11, color: '#3a6a4a', minWidth: 80, textAlign: 'right' }}>Sin nota</span>
+                      <span style={{ fontSize: 11, color: themeDetails.subText, minWidth: 80, textAlign: 'right' }}>Sin nota</span>
                     )}
                   </div>
                 );
@@ -1902,15 +2216,64 @@ function MatchRatingsCardModal({ match, players, onClose }) {
             </div>
           )}
 
-          {participantPlayers.length === 0 && (
-            <div style={{ textAlign: 'center', color: '#3a6a4a', fontSize: 13, padding: '12px 0' }}>Sin jugadores registrados</div>
-          )}
-
-          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent)', marginTop: 16, marginBottom: 10 }} />
-          <div style={{ textAlign: 'center', fontSize: 10, color: '#3a6a4a', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>🌿 Temporada {new Date().getFullYear()}</div>
+          {/* Pie */}
+          <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${resultColor}55, transparent)`, marginTop: 16, marginBottom: 10 }} />
+          <div style={{ textAlign: 'center', fontSize: 10, color: themeDetails.subText, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>🌿 Temporada {new Date().getFullYear()}</div>
         </div>
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+        {/* Controles de Diseño */}
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a7a5a', marginBottom: 8, textAlign: 'center' }}>
+            Diseño de la Tarjeta
+          </div>
+          <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: 4, marginBottom: 14 }}>
+            {[
+              { id: 'clasico', label: 'Clásico' },
+              { id: 'final', label: 'Dorado 🏆' },
+              { id: 'neon', label: 'Cyber Neón' },
+              { id: 'cristal', label: 'Cristal' }
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTheme(t.id)}
+                style={{
+                  flex: 1,
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: theme === t.id ? '#0d1f16' : 'transparent',
+                  color: theme === t.id ? '#e8f0eb' : '#4a7a5a',
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.2s'
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#a0c4b0', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={showMatchType}
+                onChange={e => setShowMatchType(e.target.checked)}
+                style={{
+                  accentColor: themeDetails.accentColor,
+                  width: 15,
+                  height: 15,
+                  cursor: 'pointer'
+                }}
+              />
+              Mostrar tipo de partido en la imagen
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cerrar</button>
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={exportCard}><Icon name="download" /> Descargar imagen</button>
         </div>
