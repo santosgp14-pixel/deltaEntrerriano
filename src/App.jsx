@@ -1117,7 +1117,7 @@ function EditPlayerModal({ player, onClose, onSave }) {
   );
 }
 
-function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStatus, defaultParticipants = [], lineupForMatch = {} }) {
+function MatchModal({ onClose, onAdd, onSave, onDelete, initial, players = [], initialStatus, defaultParticipants = [], lineupForMatch = {} }) {
   const isEdit = !!initial;
   const parseGoals = (result) => {
     if (!result) return { goalsUs: '', goalsRival: '' };
@@ -1145,6 +1145,12 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
       players,
     });
     upd('ratings', newRatings);
+  };
+  const handleDelete = () => {
+    if (window.confirm(`¿Eliminar este partido contra ${form.rival}? Esta acción no se puede deshacer.`)) {
+      onDelete(initial.id);
+      onClose();
+    }
   };
   const handle = () => {
     if (!form.rival || !form.date) return;
@@ -1308,12 +1314,26 @@ function MatchModal({ onClose, onAdd, onSave, initial, players = [], initialStat
             </div>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}
-            disabled={form.status === 'played' && (form.goalsUs === '' || form.goalsRival === '')}
-          ><Icon name="calendar" /> {isEdit ? 'Guardar Cambios' : 'Crear Partido'}</button>
-        </div>
+        {isEdit ? (
+          <div style={{ display: 'flex', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            {onDelete && (
+              <button className="btn btn-danger" style={{ flex: 1 }} onClick={handleDelete}>
+                <Icon name="trash" /> Eliminar
+              </button>
+            )}
+            <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}
+              disabled={form.status === 'played' && (form.goalsUs === '' || form.goalsRival === '')}
+            ><Icon name="check" /> Guardar</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+            <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}><Icon name="x" /> Cancelar</button>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={handle}
+              disabled={form.status === 'played' && (form.goalsUs === '' || form.goalsRival === '')}
+            ><Icon name="calendar" /> Crear Partido</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2282,7 +2302,7 @@ function MatchRatingsCardModal({ match, players, onClose }) {
   );
 }
 
-function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
+function MatchesPage({ matches, addMatch, updateMatch, deleteMatch, players = [] }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [editInitialStatus, setEditInitialStatus] = useState(null);
@@ -2382,7 +2402,7 @@ function MatchesPage({ matches, addMatch, updateMatch, players = [] }) {
       </>}
 
       {showAdd && <MatchModal onClose={() => setShowAdd(false)} onAdd={addMatch} onSave={handleSave} players={players} />}
-      {editing && <MatchModal initial={editing} initialStatus={editInitialStatus} defaultParticipants={editDefaultParticipants} lineupForMatch={editLineup} onClose={() => { setEditing(null); setEditInitialStatus(null); setEditDefaultParticipants([]); setEditLineup({}); }} onAdd={addMatch} onSave={handleSave} players={players} />}
+      {editing && <MatchModal initial={editing} initialStatus={editInitialStatus} defaultParticipants={editDefaultParticipants} lineupForMatch={editLineup} onClose={() => { setEditing(null); setEditInitialStatus(null); setEditDefaultParticipants([]); setEditLineup({}); }} onAdd={addMatch} onSave={handleSave} onDelete={deleteMatch} players={players} />}
       {resultCardMatch && <MatchResultCardModal match={resultCardMatch} players={players} onClose={() => setResultCardMatch(null)} />}
       {ratingsCardMatch && <MatchRatingsCardModal match={ratingsCardMatch} players={players} onClose={() => setRatingsCardMatch(null)} />}
       {previewCardMatch && <MatchPreviewCardModal match={previewCardMatch} onClose={() => setPreviewCardMatch(null)} />}
@@ -3040,6 +3060,7 @@ export default function App() {
   const updatePlayer = (id, data) => { updateDoc(doc(db, 'players', id), data); };
   const deletePlayer = (id) => { deleteDoc(doc(db, 'players', id)); };
   const addMatch     = (m) => { const { id, ...data } = m; addDoc(collection(db, 'matches'), data); };
+  const deleteMatch  = (id) => { deleteDoc(doc(db, 'matches', id)); };
   const updateMatch  = (id, data, prevMatch) => {
     updateDoc(doc(db, 'matches', id), data);
     // Auto-post si se acaba de cargar un resultado nuevo
@@ -3063,7 +3084,7 @@ export default function App() {
   const pages = {
     dashboard: <Dashboard players={players} matches={matches} posts={posts} />,
     players: <PlayersPage players={players} addPlayer={addPlayer} updatePlayer={updatePlayer} deletePlayer={deletePlayer} matches={matches} />,
-    matches: <MatchesPage matches={matches} addMatch={addMatch} updateMatch={updateMatch} players={players} />,
+    matches: <MatchesPage matches={matches} addMatch={addMatch} updateMatch={updateMatch} deleteMatch={deleteMatch} players={players} />,
     convocatoria: <ConvocatoriaPage players={players} matches={matches} dtName={dtName} onSaveDt={saveDtName} />,
     stats: <StatsPage players={players} matches={matches} />,
     feed: <FeedPage posts={posts} addPost={addPost} updatePost={updatePost} deletePost={deletePost} />,
