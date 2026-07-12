@@ -1719,13 +1719,7 @@ function MatchPreviewCardModal({ match, onClose }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const scale = 4;
-      const dataUrl = await domtoimage.toPng(el, {
-        width: el.offsetWidth * scale,
-        height: el.offsetHeight * scale,
-        style: { transform: `scale(${scale})`, transformOrigin: 'top left' },
-        bgcolor: null,
-      });
+      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
       const link = document.createElement('a');
       link.download = `previo-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
       link.href = dataUrl;
@@ -1934,13 +1928,7 @@ function MatchResultCardModal({ match, players, onClose }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const scale = 4;
-      const dataUrl = await domtoimage.toPng(el, {
-        width: el.offsetWidth * scale,
-        height: el.offsetHeight * scale,
-        style: { transform: `scale(${scale})`, transformOrigin: 'top left' },
-        bgcolor: null,
-      });
+      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
       const link = document.createElement('a');
       link.download = `resultado-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
       link.href = dataUrl;
@@ -2135,13 +2123,7 @@ function MatchRatingsCardModal({ match, players, onClose }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const scale = 4;
-      const dataUrl = await domtoimage.toPng(el, {
-        width: el.offsetWidth * scale,
-        height: el.offsetHeight * scale,
-        style: { transform: `scale(${scale})`, transformOrigin: 'top left' },
-        bgcolor: null,
-      });
+      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
       const link = document.createElement('a');
       link.download = `notas-vs-${(match.rival || 'rival').replace(/\s+/g, '-').toLowerCase()}.png`;
       link.href = dataUrl;
@@ -2588,13 +2570,7 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     const el = cardRef.current;
     if (!el) return;
     try {
-      const scale = 4;
-      const dataUrl = await domtoimage.toPng(el, {
-        width: el.offsetWidth * scale,
-        height: el.offsetHeight * scale,
-        style: { transform: `scale(${scale})`, transformOrigin: 'top left' },
-        bgcolor: '#0d1f16',
-      });
+      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
       const link = document.createElement('a');
       link.download = `convocatoria-${upcoming ? upcoming.rival.replace(/\s+/g, '-').toLowerCase() : 'delta'}.png`;
       link.href = dataUrl;
@@ -2606,13 +2582,7 @@ function ConvocatoriaPage({ players, matches, dtName = '', onSaveDt }) {
     const el = fieldRef.current;
     if (!el) return;
     try {
-      const scale = 4;
-      const dataUrl = await domtoimage.toPng(el, {
-        width: el.offsetWidth * scale,
-        height: el.offsetHeight * scale,
-        style: { transform: `scale(${scale})`, transformOrigin: 'top left' },
-        bgcolor: '#0a1a12',
-      });
+      const dataUrl = await domtoimage.toPng(el, { scale: 4 });
       const link = document.createElement('a');
       link.download = `alineacion-${upcoming ? upcoming.rival.replace(/\s+/g, '-').toLowerCase() : 'delta'}.png`;
       link.href = dataUrl;
