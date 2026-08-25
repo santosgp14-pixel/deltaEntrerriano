@@ -674,12 +674,12 @@ const STYLES = `
       text-transform: uppercase;
     }
 
-    /* Main content con safe area top para Dynamic Island / Notch */
+    /* Main content con safe area top amplia para iOS / Dynamic Island / Status Bar */
     .main {
       margin-left: 0;
       margin-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
       padding: 16px;
-      padding-top: max(56px, calc(env(safe-area-inset-top, 0px) + 20px));
+      padding-top: max(80px, calc(env(safe-area-inset-top, 0px) + 36px));
       max-width: 100vw;
     }
 
