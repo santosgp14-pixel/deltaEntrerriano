@@ -679,8 +679,24 @@ const STYLES = `
       margin-left: 0;
       margin-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
       padding: 16px;
-      padding-top: max(16px, env(safe-area-inset-top, 0px));
+      padding-top: max(56px, calc(env(safe-area-inset-top, 0px) + 20px));
       max-width: 100vw;
+    }
+
+    /* Page header adaptado para no chocarse con la isla dinámica o estado de iOS */
+    .page-header {
+      margin-bottom: 24px;
+      align-items: center;
+      gap: 12px;
+    }
+    .page-header img {
+      width: 44px !important;
+      height: 44px !important;
+      flex-shrink: 0;
+    }
+    .page-title {
+      font-size: 26px;
+      line-height: 1.1;
     }
 
     /* Grids adaptadas a pantalla móvil */
@@ -695,10 +711,6 @@ const STYLES = `
     .players-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .player-card { padding: 14px; border-radius: 16px; }
     .player-number { font-size: 38px; }
-
-    /* Page header */
-    .page-header { margin-bottom: 20px; }
-    .page-title { font-size: 26px; }
 
     /* Tabs overflow scroll */
     .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
