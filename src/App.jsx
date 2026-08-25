@@ -615,8 +615,19 @@ const STYLES = `
   .tab.active { background: #0d1f16; color: #e8f0eb; }
   .tab:hover:not(.active) { color: #a0c4b0; }
 
+  .ios-top-spacer {
+    display: none;
+  }
+
   /* ── RESPONSIVE ADAPTATION (IPHONE 17 & MOBILE DISPOSITIVOS) ── */
   @media (max-width: 768px) {
+    .ios-top-spacer {
+      display: block;
+      height: max(52px, env(safe-area-inset-top, 52px));
+      width: 100%;
+      flex-shrink: 0;
+    }
+
     /* Prevent iOS auto-zoom on input focus by using 16px font-size */
     .form-input, .form-select, textarea {
       font-size: 16px !important;
@@ -3194,6 +3205,7 @@ export default function App() {
 
         {/* MAIN */}
         <main className="main">
+          <div className="ios-top-spacer" />
           {loading
             ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#4a7a5a', fontSize: 14 }}>Cargando...</div>
             : pages[page]
