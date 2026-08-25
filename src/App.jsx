@@ -622,10 +622,7 @@ const STYLES = `
   /* ── RESPONSIVE ADAPTATION (IPHONE 17 & MOBILE DISPOSITIVOS) ── */
   @media (max-width: 768px) {
     .ios-top-spacer {
-      display: block;
-      height: max(52px, env(safe-area-inset-top, 52px));
-      width: 100%;
-      flex-shrink: 0;
+      display: none;
     }
 
     /* Prevent iOS auto-zoom on input focus by using 16px font-size */
@@ -685,18 +682,18 @@ const STYLES = `
       text-transform: uppercase;
     }
 
-    /* Main content con safe area top amplia para iOS / Dynamic Island / Status Bar */
+    /* Main content con safe area top calibrada para iOS / Dynamic Island / Status Bar */
     .main {
       margin-left: 0;
       margin-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
       padding: 16px;
-      padding-top: max(80px, calc(env(safe-area-inset-top, 0px) + 36px));
+      padding-top: max(48px, calc(env(safe-area-inset-top, 0px) + 12px));
       max-width: 100vw;
     }
 
     /* Page header adaptado para no chocarse con la isla dinámica o estado de iOS */
     .page-header {
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       align-items: center;
       gap: 12px;
     }
