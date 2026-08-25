@@ -3244,15 +3244,49 @@ PERFORMANCE OF THIS SOFTWARE.
     display: none;
   }
 
-  /* ── RESPONSIVE ADAPTATION (IPHONE 17 & MOBILE DISPOSITIVOS) ── */
+  /* ── RESPONSIVE ADAPTATION (IPHONE & MOBILE UI/UX DISPOSITIVOS) ── */
   @media (max-width: 768px) {
     .ios-top-spacer {
       display: none;
     }
 
-    /* Prevent iOS auto-zoom on input focus by using 16px font-size */
+    /* Prevent iOS auto-zoom on input focus & optimize touch targets */
     .form-input, .form-select, textarea {
       font-size: 16px !important;
+      min-height: 44px;
+      padding: 10px 14px;
+      border-radius: 12px;
+    }
+
+    /* General card padding optimization for small mobile viewports */
+    .card {
+      padding: 16px;
+      border-radius: 16px;
+    }
+
+    .post-card {
+      padding: 16px;
+      border-radius: 16px;
+      margin-bottom: 12px;
+    }
+
+    .post-title {
+      font-size: 16px;
+    }
+
+    .post-body {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* Touch targets (Apple Human Interface Guidelines 44pt) */
+    .btn {
+      min-height: 42px;
+    }
+    .btn-sm {
+      min-height: 36px;
+      padding: 6px 12px;
+      font-size: 12px;
     }
 
     /* Sidebar pasa a bottom nav estilo iOS con blur y safe areas */
@@ -3269,7 +3303,7 @@ PERFORMANCE OF THIS SOFTWARE.
       padding: 6px 8px max(6px, env(safe-area-inset-bottom, 0px));
       border-right: none;
       border-top: 1px solid rgba(201,168,76,0.18);
-      background: rgba(13, 31, 22, 0.88);
+      background: rgba(13, 31, 22, 0.92);
       -webkit-backdrop-filter: blur(20px) saturate(180%);
       backdrop-filter: blur(20px) saturate(180%);
       z-index: 100;
@@ -3311,7 +3345,7 @@ PERFORMANCE OF THIS SOFTWARE.
     .main {
       margin-left: 0;
       margin-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
-      padding: 16px;
+      padding: 14px;
       padding-top: max(48px, calc(env(safe-area-inset-top, 0px) + 12px));
       max-width: 100vw;
     }
@@ -3332,18 +3366,22 @@ PERFORMANCE OF THIS SOFTWARE.
       line-height: 1.1;
     }
 
-    /* Grids adaptadas a pantalla móvil */
+    /* Stat cards optimizadas para 2 columnas sin desbordamiento */
     .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
-    .stat-card { padding: 14px 16px; border-radius: 16px; }
-    .stat-value { font-size: 28px; }
+    .stat-card { padding: 14px 14px; border-radius: 14px; }
+    .stat-label { font-size: 10px; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .stat-value { font-size: 26px; }
+    .stat-sub { font-size: 11px; margin-top: 4px; }
 
     /* Dashboard 2-col → 1-col */
-    .dashboard-two-col { grid-template-columns: 1fr !important; }
+    .dashboard-two-col { grid-template-columns: 1fr !important; gap: 16px; }
 
-    /* Players */
+    /* Players grid & cards */
     .players-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .player-card { padding: 14px; border-radius: 16px; }
-    .player-number { font-size: 38px; }
+    .player-card { padding: 14px 12px; border-radius: 16px; }
+    .player-number { font-size: 34px; top: 4px; right: 10px; }
+    .player-avatar { width: 44px; height: 44px; font-size: 15px; margin-bottom: 8px; }
+    .player-name { font-size: 14px; margin-bottom: 2px; }
 
     /* Tabs overflow scroll */
     .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
@@ -3351,8 +3389,11 @@ PERFORMANCE OF THIS SOFTWARE.
     .tab { white-space: nowrap; padding: 8px 14px; }
 
     /* Match rows */
-    .match-row { padding: 12px 14px; border-radius: 14px; }
+    .match-row { padding: 12px 14px; border-radius: 14px; flex-wrap: wrap; gap: 8px; }
     .match-rival { font-size: 14px; }
+
+    /* Convocatoria attendance buttons */
+    .attend-btn { padding: 12px 8px; font-size: 13px; border-radius: 12px; }
 
     /* Bottom sheet modal iOS */
     .modal-overlay {
@@ -3366,7 +3407,7 @@ PERFORMANCE OF THIS SOFTWARE.
       left: 0; right: 0;
       max-width: 100%;
       max-height: calc(88vh - env(safe-area-inset-top, 0px));
-      padding: 20px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+      padding: 20px 16px calc(24px + env(safe-area-inset-bottom, 0px));
       background: rgba(13, 31, 22, 0.96);
       -webkit-backdrop-filter: blur(25px);
       backdrop-filter: blur(25px);
@@ -3413,7 +3454,7 @@ PERFORMANCE OF THIS SOFTWARE.
     }
 
     /* Rank table */
-    .rank-table th, .rank-table td { padding: 8px 6px; font-size: 11px; }
+    .rank-table th, .rank-table td { padding: 10px 6px; font-size: 12px; }
 
     /* Card sm */
     .card-sm { padding: 12px 14px; border-radius: 14px; }
